@@ -19,6 +19,11 @@ Known defects in the current codebase. Update this alongside bug fixes and new d
 
 ## Resolved
 
+- **Default `ExampleUnitTest` / `ExampleInstrumentedTest` templates were still unmodified
+  boilerplate, not real coverage.** Neither exercised any app code (one asserted `2 + 2 == 4`, the
+  other just checked the package name). Real coverage already existed elsewhere (`CronScheduleTest`,
+  `ReminderDaoTest`, and the Compose component/screen tests), so both files were deleted rather than
+  replaced.
 - **Marking reminder as incomplete and then complete again caused duplicate reminders.**
   `AlarmScheduler.completeAndAdvance()` spawns a new `Reminder` row for a recurring reminder's
   next occurrence on completion. Un-completing the original and completing it again re-ran that

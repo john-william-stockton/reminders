@@ -13,8 +13,6 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 - No widgets or wearable support
 - No localization (English only; date/time formats are hardcoded, not locale-aware)
 - No dark/light theme toggle beyond system default
-- Default `ExampleUnitTest` / `ExampleInstrumentedTest` templates are still unmodified boilerplate,
-  not real coverage
 - No instrumented test launches the real `Main` Activity end-to-end (real Room DB, `AlarmManager`,
   permission-request navigation) — only its extracted `RemindersScreen` composable is covered
 
