@@ -56,6 +56,13 @@ A snapshot of what's implemented today and what's still open. Update this alongs
   - Configurable default reminder time for reminders without an explicit time
   - Changing the default time re-arms affected reminders immediately
 
+- **Branding**
+  - Adaptive launcher icon (plus a monochrome variant for Android 13+ themed icons): a
+    checklist glyph — one checked row over two pending rows — in the app's own Material 3 purple,
+    styled after the iOS Reminders app icon
+  - Splash screen (via `androidx.core:core-splashscreen`) reuses the same icon artwork and
+    background tone on launch
+
 - **Permissions**
   - Requests notification (`POST_NOTIFICATIONS`), exact-alarm scheduling, and "display over other
     apps" permissions on first launch

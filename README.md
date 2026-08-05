@@ -31,6 +31,7 @@ permissions, which it needs to reliably show full-screen alarms.
   rearmed on boot and app launch
 - **Recurring schedules**: [cron-utils](https://github.com/jmrozanec/cron-utils) (UNIX CRON
   syntax)
+- **Launch**: `androidx.core:core-splashscreen`
 
 ## Project layout
 

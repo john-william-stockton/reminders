@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.core.net.toUri
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -27,7 +28,12 @@ class Main : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+        // The splash theme (Theme.App.Starting, set in the manifest) only needs to apply for
+        // the instant the splash is visible; switch back to the app's real theme immediately so
+        // the rest of the activity's views don't inherit the splash's window background.
+        setTheme(R.style.Theme_Reminders)
         dao = DatabaseProvider.dao(applicationContext)
         val remindersFlow = dao.readAll()
         val defaultReminderTimeFlow = SettingsRepository.defaultReminderTime(applicationContext)

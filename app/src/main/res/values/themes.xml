@@ -3,6 +3,14 @@
 
     <style name="Theme.Reminders" parent="android:Theme.Material.Light.NoActionBar" />
 
+    <!-- Reuses the launcher icon's own artwork and background tone (see
+         ic_launcher_foreground/background.xml) so the splash reads as a plain-colored canvas
+         holding the same glyph, the way the launcher icon itself does. -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FFFBFE</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+
     <style name="Theme.App.Alarm" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowShowWallpaper">false</item>
         <item name="android:windowBackground">@android:color/black</item>

@@ -1,53 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- iOS Reminders' glyph (a checked row over two unchecked rows) redrawn with this app's own
-     palette: Purple40 for the completed row (matching the light-theme M3 primary in Theme.kt)
-     and Material3 neutral-outline tones for the pending rows, echoing ReminderListItem's own
-     circle-and-line-of-text layout. -->
+<!-- Single-color silhouette for Android 13+ themed icons: the system applies its own tint, so
+     unlike ic_launcher_foreground this drops the checkmark cutout and per-row coloring and just
+     needs a recognizable checklist shape. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Row 1: completed reminder -->
     <path
-        android:fillColor="#6650A4"
+        android:fillColor="#FF000000"
         android:pathData="M32,34 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M28.5,34.3 L31,37 L36.5,29.5" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#6650A4"
+        android:strokeColor="#FF000000"
         android:strokeWidth="7"
         android:strokeLineCap="round"
         android:pathData="M46,34 L85,34" />
-
-    <!-- Row 2: pending reminder -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#79747E"
+        android:strokeColor="#FF000000"
         android:strokeWidth="4"
         android:pathData="M32,54 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#CAC4D0"
+        android:strokeColor="#FF000000"
         android:strokeWidth="7"
         android:strokeLineCap="round"
         android:pathData="M46,54 L78,54" />
-
-    <!-- Row 3: pending reminder -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#79747E"
+        android:strokeColor="#FF000000"
         android:strokeWidth="4"
         android:pathData="M32,74 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#CAC4D0"
+        android:strokeColor="#FF000000"
         android:strokeWidth="7"
         android:strokeLineCap="round"
         android:pathData="M46,74 L70,74" />

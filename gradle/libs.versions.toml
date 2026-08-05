@@ -11,6 +11,7 @@ composeBom = "2026.06.01"
 room3 = "3.0.1"
 ksp = "2.3.10"
 cronUtils = "9.2.1"
+splashscreen = "1.0.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -31,6 +32,7 @@ androidx-compose-material-icons-core = { group = "androidx.compose.material", na
 room3-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room3" }
 room3-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room3" }
 cron-utils = { group = "com.cronutils", name = "cron-utils", version.ref = "cronUtils" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
