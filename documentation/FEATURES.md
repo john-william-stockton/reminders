@@ -2,6 +2,22 @@
 
 A snapshot of what's implemented today and what's still open. Update this alongside feature work.
 
+## Not yet implemented
+
+- No editing of individual occurrences of a recurring reminder (edits apply to the current row
+  only; future spawned occurrences reuse the original title/description/schedules)
+- No categories, tags, priorities, or search/filter beyond the three tabs
+- No custom snooze duration (fixed at 2 minutes)
+- No notification sound/vibration customization per reminder
+- No backup/restore or sync across devices
+- No widgets or wearable support
+- No localization (English only; date/time formats are hardcoded, not locale-aware)
+- No dark/light theme toggle beyond system default
+- Default `ExampleUnitTest` / `ExampleInstrumentedTest` templates are still unmodified boilerplate,
+  not real coverage
+- No instrumented test launches the real `Main` Activity end-to-end (real Room DB, `AlarmManager`,
+  permission-request navigation) — only its extracted `RemindersScreen` composable is covered
+
 ## Implemented
 
 - **Reminders**
@@ -55,19 +71,3 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     `AlarmActivity`/`AlarmScreen` split) so it can be tested without a real device database or
     system permissions; `Main`'s own Activity wiring (DB, `AlarmManager`, permission requests) is
     not covered by these tests
-
-## Not yet implemented
-
-- No editing of individual occurrences of a recurring reminder (edits apply to the current row
-  only; future spawned occurrences reuse the original title/description/schedules)
-- No categories, tags, priorities, or search/filter beyond the three tabs
-- No custom snooze duration (fixed at 2 minutes)
-- No notification sound/vibration customization per reminder
-- No backup/restore or sync across devices
-- No widgets or wearable support
-- No localization (English only; date/time formats are hardcoded, not locale-aware)
-- No dark/light theme toggle beyond system default
-- Default `ExampleUnitTest` / `ExampleInstrumentedTest` templates are still unmodified boilerplate,
-  not real coverage
-- No instrumented test launches the real `Main` Activity end-to-end (real Room DB, `AlarmManager`,
-  permission-request navigation) — only its extracted `RemindersScreen` composable is covered
