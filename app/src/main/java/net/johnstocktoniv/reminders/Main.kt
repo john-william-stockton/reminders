@@ -2,7 +2,6 @@ package net.johnstocktoniv.reminders
 
 import android.Manifest
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -60,6 +59,7 @@ import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.settings.SettingsRepository
 import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 import java.time.LocalDate
+import androidx.core.net.toUri
 
 private sealed interface ReminderDialogTarget {
     data object Add : ReminderDialogTarget
@@ -101,7 +101,7 @@ class Main : ComponentActivity() {
                 val visibleReminders = when (selectedTab.value) {
                     // Only reminders actually due today; stable sort keeps incomplete above complete.
                     ReminderTab.TODAY -> reminders.filter { it.reminder.date == LocalDate.now() }
-                        .sortedBy { it.reminder.complete }
+                                                  .sortedBy { it.reminder.complete }
                     ReminderTab.INCOMPLETE -> reminders.filter { !it.reminder.complete }
                     ReminderTab.COMPLETE -> reminders.filter { it.reminder.complete }
                 }
@@ -113,9 +113,13 @@ class Main : ComponentActivity() {
                         text = { Text("This will permanently delete ${visibleReminders.size} completed reminder(s). This can't be undone.") },
                         confirmButton = {
                             Button(onClick = {
-                                val toDelete = visibleReminders
-                                lifecycleScope.launch { toDelete.forEach { dao.delete(it.reminder) } }
-                                toDelete.forEach { AlarmScheduler.cancel(applicationContext, it.reminder.id) }
+                                lifecycleScope.launch { visibleReminders.forEach { dao.delete(it.reminder) } }
+                                visibleReminders.forEach {
+                                    AlarmScheduler.cancel(
+                                        applicationContext,
+                                        it.reminder.id
+                                    )
+                                }
                                 showClearAllConfirm.value = false
                             }) {
                                 Text("Delete")
@@ -170,9 +174,9 @@ class Main : ComponentActivity() {
                     floatingActionButton = {
                         FloatingActionButton(
                             onClick = { reminderDialogTarget.value = ReminderDialogTarget.Add },
-                            modifier = Modifier.padding(7.dp).size(75.6.dp)
+                            modifier = Modifier.padding(12.dp).size(75.6.dp)
                         ) {
-                            Icon(Icons.Filled.Add, contentDescription = "Add Item", modifier = Modifier.size(32.4.dp))
+                            Icon(Icons.Filled.Add, contentDescription = "Add Item", modifier = Modifier.size(36.dp))
                         }
                     },
                     bottomBar = {
@@ -181,7 +185,7 @@ class Main : ComponentActivity() {
                                 NavigationBarItem(
                                     selected = selectedTab.value == tab,
                                     onClick = { selectedTab.value = tab },
-                                    icon = { Icon(tab.icon, contentDescription = null, modifier = Modifier.size(26.4.dp)) },
+                                    icon = { Icon(tab.icon, contentDescription = null, modifier = Modifier.size(36.dp)) },
                                     label = { Text(tab.label) }
                                 )
                             }
@@ -256,7 +260,7 @@ class Main : ComponentActivity() {
         // even while the phone is unlocked and in use.
         if (!Settings.canDrawOverlays(this)) {
             startActivity(
-                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri())
             )
         }
     }

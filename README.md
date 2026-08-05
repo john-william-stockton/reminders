@@ -46,5 +46,5 @@ app/src/main/java/net/johnstocktoniv/reminders/
 
 ## Documentation
 
-See [FEATURES.md](FEATURES.md) for a list of implemented features and known gaps, and
-[BUGS.md](BUGS.md) for known defects.
+See [FEATURES.md](documentation/FEATURES.md) for a list of implemented features and known gaps, and
+[BUGS.md](documentation/BUGS.md) for known defects.

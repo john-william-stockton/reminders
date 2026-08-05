@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.lifecycleScope
@@ -139,29 +141,36 @@ private fun AlarmScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text("Reminder", style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.height(16.dp))
             Text(
                 title,
-                style = MaterialTheme.typography.headlineMedium.let {
-                    it.copy(fontSize = it.fontSize * 1.5f, lineHeight = it.lineHeight * 1.5f)
-                },
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                autoSize = TextAutoSize.StepBased(),
+                modifier = Modifier.fillMaxWidth()
             )
             if (description.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             }
             Spacer(Modifier.height(48.dp))
+            // Double the Material 3 default button height (40.dp) and scale the label to match,
+            // since these are the only two actions on the alarm screen and should be easy to hit
+            // and read at a glance.
+            val actionButtonModifier = Modifier.fillMaxWidth().height(80.dp)
+            val actionButtonTextStyle = MaterialTheme.typography.labelLarge.let {
+                it.copy(fontSize = it.fontSize * 1.5f, lineHeight = it.lineHeight * 1.5f)
+            }
             Button(
                 onClick = onComplete,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = SuccessContainer,
                     contentColor = OnSuccessContainer
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = actionButtonModifier
             ) {
-                Text("Mark Complete")
+                Text("Mark Complete", style = actionButtonTextStyle)
             }
             Spacer(Modifier.height(12.dp))
             Button(
@@ -170,9 +179,9 @@ private fun AlarmScreen(
                     containerColor = SnoozeContainer,
                     contentColor = OnSnoozeContainer
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = actionButtonModifier
             ) {
-                Text("Snooze 2 minutes")
+                Text("Snooze 2 minutes", style = actionButtonTextStyle)
             }
         }
     }

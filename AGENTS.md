@@ -1,1 +1,0 @@
-Ensure that `README.md`, `FEATURES.md`, and `BUGS.md` are kept up-to-date after any significant changes.

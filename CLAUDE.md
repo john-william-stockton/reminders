@@ -1,1 +1,1 @@
-Read `./AGENTS.md`
+Ensure that `README.md`, `documentation/FEATURES.md`, and `documentation/BUGS.md` are kept up-to-date after any significant changes.

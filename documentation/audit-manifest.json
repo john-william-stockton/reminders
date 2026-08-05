@@ -1,0 +1,33 @@
+{
+  "description": "Per-file content hashes (SHA-256, not git blob/commit hashes) and last-analyzed dates recorded by the last documentation audit (see update-documentation.md). A file can be skipped on the next audit only if its current hash matches AND last_analyzed is within the past 3 months; otherwise it must be re-read and re-evaluated. Files not listed here have never been audited.",
+  "generated": "2026-08-05",
+  "files": {
+    "README.md": { "hash": "dba8e321edcb351fd5771f8e1dccae8ed28f0cc0588a4c6d9647b5410818b9f8", "last_analyzed": "2026-08-05" },
+    "documentation/FEATURES.md": { "hash": "603ee1ad6bf2bb847e26d9813fe4e065062ff0b6991c8fc6b146c95cb39b926c", "last_analyzed": "2026-08-05" },
+    "documentation/BUGS.md": { "hash": "0123ec5124335b7310732c4d4c7d31756cbf2e510a2f79da86d119deb32e9bbd", "last_analyzed": "2026-08-05" },
+    "documentation/update-documentation.md": { "hash": "5971f006e2232342f43b1f44256860e549a0e41c4776bcb7afc7610689d223a9", "last_analyzed": "2026-08-05" },
+    "app/src/main/AndroidManifest.xml": { "hash": "be8f3dfc9bac29cab32d07891834637b3b60c5ab2290db8d1d22a12beb159fca", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/Main.kt": { "hash": "0eb6dd56ff9d5919c42902d0a7e3ed5d26dcca1cdec92fe3c3b7e9a35c8a91b4", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/alarm/AlarmActivity.kt": { "hash": "614fe3a01b247b4779beb64094fbf00dd9e210ee8a491a4066d4bbc131cbeb06", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/alarm/AlarmScheduler.kt": { "hash": "872605137f11429c91a36fdb3bd3aafc6d327a3f7e1689d860046009188777c5", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/alarm/AlarmReceiver.kt": { "hash": "887301a8347ee0364e1cd8f42f15f486c4044c649dbe9168e43aa563c260a722", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/alarm/BootReceiver.kt": { "hash": "bcb32c36b5624b2986c17ae539c7da80f16dc41bcd06d304ed153021bd1c17c2", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/alarm/CronSchedule.kt": { "hash": "dfa1e64c7337ff943d8ee58ec7fcb1d79a9af41c5d6cabcee36e0e1ac529d5e1", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/database/Reminder.kt": { "hash": "d18aef257deaedc228d01e43d900b80f07046d8b115e34d2fc0652183bcd3349", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/database/ReminderSchedule.kt": { "hash": "9166c6c4133b2706858267936c5f7e3f8c0b45a0b3cef729138f840faa17d509", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/database/Migrations.kt": { "hash": "c6f3cc2bf1d99d3d8d50a9cc1bd343e7167f94e5d3b775a53456edc5c0776d97", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/database/RemindersDatabase.kt": { "hash": "ec91e0759ef1a4c0a9411e583ff98de03b099e71e8a302b68a657f4666fcd448", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/database/DatabaseProvider.kt": { "hash": "b554cd02a648a98216d6270381797823b22889eceb72fced8d08ddcbb781bde9", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/database/DateConverters.kt": { "hash": "bbca1fffb22f68747313f3b61c40fd250e5a34ff1267c363c860727943ae5e8d", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/settings/SettingsRepository.kt": { "hash": "c1f8ae780be1e468acf2e178f96bdd2eb7301b261e3133e17f7295ba9716a579", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/component/ReminderDialog.kt": { "hash": "a503ed191c5fd2de1027b7b8e65787215013123c9116f1f81aa5a1c940386038", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/component/ReminderListItem.kt": { "hash": "e73316c86adb4d021043cfde9f1f4ee4489aba1b63a7d656df748cd33f23f00f", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/component/SettingsDialog.kt": { "hash": "5114f8a82f4e20f3a78cd14353bb8cb66afeb467f7fcb54fccb0171e42c40362", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/ui/theme/Theme.kt": { "hash": "84162d62df2f4a28a2e1b9fb444504f9addbe4a96e7d8959c0444480eddf8006", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/ui/theme/Color.kt": { "hash": "36bb3bcbf88c31dd2c32015de3113806c0ec1fc035e2c43115af3c073236e3f0", "last_analyzed": "2026-08-05" },
+    "app/src/main/java/net/johnstocktoniv/reminders/ui/theme/Type.kt": { "hash": "3eea218a6853110c73873446c9b98dd68af5d36399524544c64c365ca92ebc0e", "last_analyzed": "2026-08-05" },
+    "app/src/test/java/net/johnstocktoniv/reminders/alarm/CronScheduleTest.kt": { "hash": "2fd35d250ae6ab4033c1af5e4391266ab6d136562a52c3f3bfa03dea3af32c3b", "last_analyzed": "2026-08-05" },
+    "app/src/test/java/net/johnstocktoniv/reminders/ExampleUnitTest.kt": { "hash": "0b0b5d733a5781d24e9f55eeeae34a9842c37673b68089550033bfeabf2a0fd1", "last_analyzed": "2026-08-05" },
+    "app/src/androidTest/java/net/johnstocktoniv/reminders/ExampleInstrumentedTest.kt": { "hash": "71e182110a6763184db8360c7ddfac3e8dbdec75b3b83b9e71ee6cb2ebe52265", "last_analyzed": "2026-08-05" }
+  }
+}
