@@ -20,20 +20,26 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.database.dateFormatter
 import net.johnstocktoniv.reminders.database.timeFormatter
 import java.time.LocalDateTime
 import java.time.LocalTime
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ReminderListItem(
@@ -44,8 +50,18 @@ fun ReminderListItem(
     modifier: Modifier
 ) {
     val reminder = reminderWithSchedules.reminder
+    // Composition only runs again when this item's own state changes, but "is this reminder
+    // overdue" also depends on wall-clock time passing with nothing else about the item
+    // changing — so without this ticker, an item shown before its due time never flips to
+    // "Overdue" while the screen just sits open.
+    val now by produceState(initialValue = LocalDateTime.now()) {
+        while (true) {
+            delay(30_000.milliseconds)
+            value = LocalDateTime.now()
+        }
+    }
     val isOverdue = !reminder.complete &&
-        reminder.date.atTime(reminder.effectiveTime(defaultReminderTime)).isBefore(LocalDateTime.now())
+        reminder.date.atTime(reminder.effectiveTime(defaultReminderTime)).isBefore(now)
     val scope = rememberCoroutineScope()
     val swipeToDismissBoxState = rememberSwipeToDismissBoxState(
         positionalThreshold = { d -> 0.5f * d }
@@ -99,7 +115,8 @@ fun ReminderListItem(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
-                .padding(9.dp)
+                               .padding(9.dp)
+                               .alpha(if (reminder.complete) 0.1f else 1.0f)
         ) {
             if (isOverdue) {
                 Text(
@@ -121,13 +138,13 @@ fun ReminderListItem(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "($dateTimeText)",
+                    dateTimeText,
                     style = MaterialTheme.typography.bodySmall,
                     color = dateTimeColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 6.dp)
+                    maxLines = 1
                 )
                 if (reminderWithSchedules.schedules.isNotEmpty()) {
                     Icon(

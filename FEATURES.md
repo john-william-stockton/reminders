@@ -14,7 +14,8 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 - Completing a recurring reminder automatically spawns the next occurrence (copying its schedules)
   and re-arms its alarm
 - Un-completing a reminder re-arms its alarm
-- Overdue reminders are visually flagged in the list
+- Overdue reminders are visually flagged in the list, and the flag refreshes automatically
+  (checked every 30s) while the list stays on screen
 
 ### List & navigation
 - Three tabs: **Today**, **Incomplete**, **Complete**
@@ -23,8 +24,8 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 - "Clear All" bulk-deletes completed reminders, with a confirmation dialog
 
 ### Alarms & notifications
-- Full-screen alarm activity that shows over the lock screen, plays a looping alarm ringtone, and
-  vibrates
+- Full-screen alarm activity that shows over the lock screen and vibrates (no alarm sound, by
+  design — accessibility choice for hearing-impaired users)
 - Alarm screen actions: Mark Complete, Snooze 10 minutes, Dismiss
 - Notification with a full-screen intent (auto-launches when locked) and heads-up fallback when
   unlocked

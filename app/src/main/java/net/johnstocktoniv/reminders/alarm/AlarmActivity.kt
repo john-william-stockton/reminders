@@ -1,9 +1,6 @@
 package net.johnstocktoniv.reminders.alarm
 
 import android.app.KeyguardManager
-import android.media.AudioAttributes
-import android.media.Ringtone
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -39,8 +36,7 @@ import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 import java.time.LocalDateTime
 
 class AlarmActivity : ComponentActivity() {
-    private var ringtone: Ringtone? = null
-    private var vibrator: Vibrator? = null
+    private var vibrator: Vibrator? = null // gross lol
     private val extras by lazy { AlarmScheduler.extrasFrom(intent) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,19 +79,6 @@ class AlarmActivity : ComponentActivity() {
     }
 
     private fun startAlerting() {
-        val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        ringtone = RingtoneManager.getRingtone(this, uri)?.apply {
-            audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                isLooping = true
-            }
-            play()
-        }
-
         vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             getSystemService(VibratorManager::class.java).defaultVibrator
         } else {
@@ -107,8 +90,6 @@ class AlarmActivity : ComponentActivity() {
     }
 
     private fun stopAlerting() {
-        ringtone?.stop()
-        ringtone = null
         vibrator?.cancel()
         vibrator = null
         if (extras.reminderId != -1L) {
@@ -153,7 +134,7 @@ private fun AlarmScreen(
     onComplete: () -> Unit,
     onSnooze: () -> Unit
 ) {
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.errorContainer) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
                 .fillMaxSize()

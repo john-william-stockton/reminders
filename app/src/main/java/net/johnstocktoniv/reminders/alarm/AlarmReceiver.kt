@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -45,33 +46,35 @@ class AlarmReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification_alarm)
-                .setContentTitle(extras.title.ifBlank { "Reminder" })
-                .setContentText(extras.description)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setFullScreenIntent(fullScreenPendingIntent, true)
-                .setContentIntent(fullScreenPendingIntent)
-                .setAutoCancel(true)
-                .setOngoing(true)
-                .build()
+            // With SYSTEM_ALERT_WINDOW granted (requested in Main.requestAlarmPermissionsIfNeeded),
+            // the direct startActivity() below reliably shows the alarm screen on its own, so the
+            // full-screen-intent notification would only add a redundant heads-up banner on top of
+            // it. Without that permission, startActivity() is a no-op due to background-activity-
+            // start restrictions, so the notification is the only way to auto-launch on a locked
+            // device or fall back to a heads-up banner while unlocked — post it only in that case.
+            if (!Settings.canDrawOverlays(context)) {
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification_alarm)
+                    .setContentTitle(extras.title.ifBlank { "Reminder" })
+                    .setContentText(extras.description)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setFullScreenIntent(fullScreenPendingIntent, true)
+                    .setContentIntent(fullScreenPendingIntent)
+                    .setAutoCancel(true)
+                    .setOngoing(true)
+                    .build()
 
-            // Kept inline (rather than a shared permission-check helper) so Android Lint's
-            // MissingPermission check can see the guard right at the notify() call site.
-            val canPostNotifications = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
-            if (canPostNotifications) {
-                NotificationManagerCompat.from(context).notify(extras.reminderId.toInt(), notification)
+                // Kept inline (rather than a shared permission-check helper) so Android Lint's
+                // MissingPermission check can see the guard right at the notify() call site.
+                val canPostNotifications = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                        PackageManager.PERMISSION_GRANTED
+                if (canPostNotifications) {
+                    NotificationManagerCompat.from(context).notify(extras.reminderId.toInt(), notification)
+                }
             }
 
-            // The notification's fullScreenIntent only auto-launches while the device is locked;
-            // while unlocked Android instead shows it as a heads-up banner. Launching directly
-            // covers the unlocked case too, but requires the SYSTEM_ALERT_WINDOW ("display over
-            // other apps") permission to be exempt from background-activity-start restrictions
-            // (requested in Main.requestAlarmPermissionsIfNeeded) — without it this is a no-op
-            // and the heads-up notification above is the fallback.
             runCatching { context.startActivity(fullScreenIntent) }
         } finally {
             wakeLock.release()
