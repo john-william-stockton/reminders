@@ -39,6 +39,7 @@ permissions, which it needs to reliably show full-screen alarms.
 app/src/main/java/net/johnstocktoniv/reminders/
 ├── Main.kt                 # Main activity: list UI, tabs, dialogs
 ├── alarm/                  # Alarm scheduling, receivers, full-screen alarm UI
+├── backup/                  # YAML export/restore (de)serialization
 ├── component/              # Compose dialogs and list item
 ├── database/                # Room entities, DAO, migrations
 ├── settings/                # Default reminder time (SharedPreferences-backed)

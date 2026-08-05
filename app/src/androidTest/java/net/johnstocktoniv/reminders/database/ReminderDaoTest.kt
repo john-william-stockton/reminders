@@ -4,11 +4,14 @@ import androidx.room3.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import net.johnstocktoniv.reminders.testReminder
+import net.johnstocktoniv.reminders.testReminderWithSchedules
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,5 +80,49 @@ class ReminderDaoTest {
         val found = dao.findDuplicate("Water plants", "", date, LocalTime.of(10, 0))
 
         assertNull(found)
+    }
+
+    // restoreAll() backs the backup-restore flow (see ReminderBackup/Main's openBackupDocument):
+    // it wipes the current database and replaces it wholesale with the given rows.
+    @Test
+    fun restoreAll_replacesExistingRemindersWithGivenRows() = runBlocking {
+        dao.upsert(testReminder(title = "Old reminder", complete = true))
+
+        val restored = listOf(
+            testReminderWithSchedules(testReminder(id = 10, title = "Restored One")),
+            testReminderWithSchedules(
+                testReminder(id = 11, title = "Restored Two"),
+                cronExpressions = listOf("0 9 * * *")
+            )
+        )
+        dao.restoreAll(restored)
+
+        val all = dao.readAll().first()
+        assertEquals(setOf("Restored One", "Restored Two"), all.map { it.reminder.title }.toSet())
+        assertTrue(all.none { it.reminder.title == "Old reminder" })
+    }
+
+    @Test
+    fun restoreAll_preservesReminderIdsAndSchedules() = runBlocking {
+        val restored = listOf(
+            testReminderWithSchedules(
+                testReminder(id = 42, title = "Water plants"),
+                cronExpressions = listOf("0 9 * * *", "0 9 * * 3")
+            )
+        )
+        dao.restoreAll(restored)
+
+        val found = dao.getById(42)
+        assertEquals("Water plants", found?.reminder?.title)
+        assertEquals(setOf("0 9 * * *", "0 9 * * 3"), found?.schedules?.map { it.cronExpression }?.toSet())
+    }
+
+    @Test
+    fun restoreAll_withEmptyListClearsTheDatabase() = runBlocking {
+        dao.upsert(testReminder(title = "Will be cleared"))
+
+        dao.restoreAll(emptyList())
+
+        assertTrue(dao.readAll().first().isEmpty())
     }
 }

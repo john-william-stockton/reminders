@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -13,8 +14,10 @@ import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.alarm.AlarmScheduler
+import net.johnstocktoniv.reminders.backup.ReminderBackup
 import net.johnstocktoniv.reminders.component.RemindersScreen
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.ReminderDao
@@ -26,6 +29,39 @@ class Main : ComponentActivity() {
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private val createBackupDocument =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-yaml")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            lifecycleScope.launch {
+                val yaml = ReminderBackup.toYaml(dao.readAll().first())
+                contentResolver.openOutputStream(uri)?.use { it.write(yaml.toByteArray()) }
+                Toast.makeText(this@Main, "Reminders exported", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private val openBackupDocument =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            val yaml = contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+            if (yaml == null) {
+                Toast.makeText(this, "Couldn't read that file", Toast.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
+            ReminderBackup.fromYaml(yaml).fold(
+                onSuccess = { restored ->
+                    lifecycleScope.launch {
+                        dao.readAll().first().forEach { AlarmScheduler.cancel(applicationContext, it.reminder.id) }
+                        dao.restoreAll(restored)
+                        AlarmScheduler.rearmAll(applicationContext)
+                        Toast.makeText(this@Main, "Reminders restored", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onFailure = {
+                    Toast.makeText(this, "That file isn't a valid backup", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -83,7 +119,9 @@ class Main : ComponentActivity() {
                     onClearAll = { toDelete ->
                         lifecycleScope.launch { toDelete.forEach { dao.delete(it.reminder) } }
                         toDelete.forEach { AlarmScheduler.cancel(applicationContext, it.reminder.id) }
-                    }
+                    },
+                    onExportBackup = { createBackupDocument.launch("reminders-backup.yaml") },
+                    onImportBackup = { openBackupDocument.launch(arrayOf("*/*")) }
                 )
             }
         }

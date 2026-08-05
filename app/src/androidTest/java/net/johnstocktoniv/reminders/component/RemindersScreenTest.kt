@@ -36,6 +36,8 @@ class RemindersScreenTest {
         onToggleComplete: (ReminderWithSchedules) -> Unit = {},
         onDeleteReminder: (ReminderWithSchedules) -> Unit = {},
         onClearAll: (List<ReminderWithSchedules>) -> Unit = {},
+        onExportBackup: () -> Unit = {},
+        onImportBackup: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             RemindersTheme {
@@ -46,7 +48,9 @@ class RemindersScreenTest {
                     onSaveSettings = onSaveSettings,
                     onToggleComplete = onToggleComplete,
                     onDeleteReminder = onDeleteReminder,
-                    onClearAll = onClearAll
+                    onClearAll = onClearAll,
+                    onExportBackup = onExportBackup,
+                    onImportBackup = onImportBackup
                 )
             }
         }
@@ -329,6 +333,40 @@ class RemindersScreenTest {
 
         assert(savedTime == LocalTime.of(10, 0)) { "was $savedTime" }
         composeTestRule.onNodeWithTag("defaultTimeField").assertDoesNotExist()
+    }
+
+    @Test
+    fun tappingBackupIconOpensBackupDialog() {
+        setScreen(reminders = emptyList())
+
+        composeTestRule.onNodeWithContentDescription("Backup").performClick()
+
+        composeTestRule.onNodeWithText("Backup").assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingExportInBackupDialogInvokesOnExportBackupAndClosesDialog() {
+        var exportCalled = false
+        setScreen(reminders = emptyList(), onExportBackup = { exportCalled = true })
+
+        composeTestRule.onNodeWithContentDescription("Backup").performClick()
+        composeTestRule.onNodeWithTag("exportButton").performClick()
+
+        assert(exportCalled) { "expected onExportBackup to be invoked" }
+        composeTestRule.onNodeWithTag("exportButton").assertDoesNotExist()
+    }
+
+    @Test
+    fun confirmingRestoreInBackupDialogInvokesOnImportBackupAndClosesDialog() {
+        var importCalled = false
+        setScreen(reminders = emptyList(), onImportBackup = { importCalled = true })
+
+        composeTestRule.onNodeWithContentDescription("Backup").performClick()
+        composeTestRule.onNodeWithTag("importButton").performClick()
+        composeTestRule.onNodeWithTag("confirmRestoreButton").performClick()
+
+        assert(importCalled) { "expected onImportBackup to be invoked" }
+        composeTestRule.onNodeWithText("Are you sure?").assertDoesNotExist()
     }
 
     @Test

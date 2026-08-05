@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter
 // as plain strings (e.g. in ORDER BY). Display formatting is a separate concern,
 // handled by dateFormatter/timeFormatter in Reminder.kt.
 internal val storageDateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
-private val storageTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+internal val storageTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
 
 object DateConverters {
     @ColumnTypeConverter

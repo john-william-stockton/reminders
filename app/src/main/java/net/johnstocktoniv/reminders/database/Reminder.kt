@@ -3,6 +3,7 @@ package net.johnstocktoniv.reminders.database
 import androidx.room3.Dao
 import androidx.room3.Delete
 import androidx.room3.Entity
+import androidx.room3.Insert
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import androidx.room3.Transaction
@@ -77,5 +78,30 @@ interface ReminderDao {
             upsertSchedules(cronExpressions.map { ReminderSchedule(reminderId = id, cronExpression = it) })
         }
         return id
+    }
+
+    @Insert
+    suspend fun insertReminder(reminder: Reminder)
+
+    @Insert
+    suspend fun insertSchedules(schedules: List<ReminderSchedule>)
+
+    // Cascades to reminder_schedules via its ON DELETE CASCADE foreign key.
+    @Query("DELETE FROM reminders")
+    suspend fun deleteAllReminders()
+
+    // Wipes the database and replaces it wholesale with the given rows, for backup restore.
+    // Reminder ids are preserved from the backup (rather than left to autogenerate) so restored
+    // reminders keep the same AlarmManager request codes (keyed off reminderId) they had when
+    // exported; schedule ids are left to autogenerate since nothing references them by value.
+    @Transaction
+    suspend fun restoreAll(reminders: List<ReminderWithSchedules>) {
+        deleteAllReminders()
+        reminders.forEach { (reminder, schedules) ->
+            insertReminder(reminder)
+            if (schedules.isNotEmpty()) {
+                insertSchedules(schedules.map { it.copy(id = 0) })
+            }
+        }
     }
 }

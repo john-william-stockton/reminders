@@ -4,14 +4,12 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 ## Not yet implemented
 
-- Ability to swipe between the filter tabs
-- Ability to export current database data to a YAML file and to read it and "restore" the database to that state (a potentially destructive action)
 - No editing of individual occurrences of a recurring reminder (edits apply to the current row
   only; future spawned occurrences reuse the original title/description/schedules)
 - No categories, tags, priorities, or search/filter beyond the three tabs
 - No custom snooze duration (fixed at 2 minutes)
 - No notification sound/vibration customization per reminder
-- No backup/restore or sync across devices
+- No sync across devices
 - No widgets or wearable support
 - No localization (English only; date/time formats are hardcoded, not locale-aware)
 - No dark/light theme toggle beyond system default
@@ -75,13 +73,20 @@ A snapshot of what's implemented today and what's still open. Update this alongs
   - Room database with versioned migrations
     - v1 → v2: repairs reminders whose `date` was stored in a legacy display format
     - v2 → v3: adds the `reminder_schedules` table for recurring reminders
+  - Backup/restore: export all reminders (with their CRON schedules) to a YAML file via the system
+    file picker, and restore from a previously exported file — a destructive action gated behind
+    an "Are you sure?" confirmation, since it wipes and replaces the current database wholesale.
+    Restored reminders keep their original ids so their alarms line up, and all alarms are
+    cancelled/re-armed around the restore
 
 - **Testing**
   - Unit tests for CRON schedule parsing and next-occurrence computation
-    (`CronScheduleTest`)
-  - Compose UI tests for the reminder and settings dialogs, the alarm screen, and the main list
-    screen (`ReminderDialogTest`, `SettingsDialogTest`, `AlarmScreenTest`, `RemindersScreenTest`).
-    The main screen's UI lives in a dependency-free `RemindersScreen` composable (mirroring the
-    `AlarmActivity`/`AlarmScreen` split) so it can be tested without a real device database or
-    system permissions; `Main`'s own Activity wiring (DB, `AlarmManager`, permission requests) is
-    not covered by these tests
+    (`CronScheduleTest`), and for the YAML backup round-trip and malformed-input handling
+    (`ReminderBackupTest`)
+  - Compose UI tests for the reminder, settings, and backup dialogs, the alarm screen, and the
+    main list screen (`ReminderDialogTest`, `SettingsDialogTest`, `BackupDialogTest`,
+    `AlarmScreenTest`, `RemindersScreenTest`). The main screen's UI lives in a dependency-free
+    `RemindersScreen` composable (mirroring the `AlarmActivity`/`AlarmScreen` split) so it can be
+    tested without a real device database or system permissions; `Main`'s own Activity wiring (DB,
+    `AlarmManager`, permission requests) is not covered by these tests
+  - DAO test coverage for the backup restore path (`ReminderDaoTest`'s `restoreAll_*` tests)

@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
@@ -88,10 +89,13 @@ fun RemindersScreen(
     onToggleComplete: (ReminderWithSchedules) -> Unit,
     onDeleteReminder: (ReminderWithSchedules) -> Unit,
     onClearAll: (List<ReminderWithSchedules>) -> Unit,
+    onExportBackup: () -> Unit = {},
+    onImportBackup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var reminderDialogTarget by remember { mutableStateOf<ReminderDialogTarget?>(null) }
     var settingsDialogActive by remember { mutableStateOf(false) }
+    var backupDialogActive by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(ReminderTab.TODAY) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
     // Today tab only: completed reminders default to a collapsed card stack; tapping any
@@ -145,6 +149,18 @@ fun RemindersScreen(
             settingsDialogActive = false
         }
     )
+    BackupDialog(
+        isOpen = backupDialogActive,
+        onCancel = { backupDialogActive = false },
+        onExport = {
+            onExportBackup()
+            backupDialogActive = false
+        },
+        onImport = {
+            onImportBackup()
+            backupDialogActive = false
+        }
+    )
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -152,6 +168,9 @@ fun RemindersScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    IconButton(onClick = { backupDialogActive = true }) {
+                        Icon(Icons.Filled.Backup, contentDescription = "Backup")
+                    }
                     IconButton(onClick = { settingsDialogActive = true }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
