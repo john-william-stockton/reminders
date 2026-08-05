@@ -54,6 +54,15 @@ interface ReminderDao {
     @Delete
     suspend fun delete(reminder: Reminder)
 
+    // Used only to guard against completeAndAdvance() spawning a second copy of a reminder it
+    // already spawned (e.g. complete -> incomplete -> complete on the same recurring reminder).
+    // Not used to block manual creation through the UI, which should still allow duplicates.
+    @Query(
+        "SELECT * FROM reminders WHERE title = :title AND description = :description " +
+            "AND date = :date AND time IS :time AND complete = 0 LIMIT 1"
+    )
+    suspend fun findDuplicate(title: String, description: String, date: LocalDate, time: LocalTime?): Reminder?
+
     // Replaces a reminder's full schedule set wholesale, matching how the rest of the app treats
     // saves as whole-object replacement (e.g. the reminder dialog's save flow).
     @Transaction

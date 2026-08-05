@@ -59,6 +59,18 @@ object AlarmScheduler {
         val after = maxOf(LocalDateTime.now(), current.reminder.date.atTime(effectiveTime))
         val next = nextOccurrence(current.schedules, after) ?: return
 
+        // Guards against re-spawning a duplicate next-occurrence row when a reminder is marked
+        // complete, then incomplete, then complete again — the first completion already spawned
+        // this occurrence. Only guards this internal spawn path; manual creation via the UI is
+        // unaffected and can still produce duplicates if the user wants them.
+        val alreadySpawned = dao.findDuplicate(
+            current.reminder.title,
+            current.reminder.description,
+            next.toLocalDate(),
+            next.toLocalTime()
+        )
+        if (alreadySpawned != null) return
+
         val spawned = Reminder(
             title = current.reminder.title,
             description = current.reminder.description,

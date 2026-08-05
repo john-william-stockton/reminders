@@ -16,3 +16,13 @@ Known defects in the current codebase. Update this alongside bug fixes and new d
   `setIntent()`), so `extras` — computed lazily from `intent` — keeps referring to the first
   reminder. The screen keeps showing the first reminder, and completing/snoozing from it acts on
   the first reminder's id, not the newly-arrived one.
+
+## Resolved
+
+- **Marking reminder as incomplete and then complete again caused duplicate reminders.**
+  `AlarmScheduler.completeAndAdvance()` spawns a new `Reminder` row for a recurring reminder's
+  next occurrence on completion. Un-completing the original and completing it again re-ran that
+  spawn with no memory of the earlier one, leaving two rows for the same occurrence. Fixed by
+  having `completeAndAdvance()` check `ReminderDao.findDuplicate()` (matching title, description,
+  date, and time on an incomplete reminder) before inserting, so it only skips its own internal
+  spawn — manual duplicate creation through the UI is unaffected.
