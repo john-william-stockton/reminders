@@ -9,6 +9,13 @@
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#FFFBFE</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <!-- Unlike Theme.Reminders, Theme.SplashScreen doesn't disable the action bar itself,
+             and Main's setTheme(Theme.Reminders) call in onCreate() runs after the window's
+             decor (and any action bar in it) is already inflated — so without this, a native
+             ActionBar titled "Reminders" would sit above our own Compose TopAppBar for the
+             activity's whole lifetime, not just during the splash. -->
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
     </style>
 
     <style name="Theme.App.Alarm" parent="android:Theme.Material.NoActionBar">

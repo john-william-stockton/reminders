@@ -2,6 +2,7 @@ package net.johnstocktoniv.reminders.component
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,12 +25,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -151,7 +154,13 @@ fun RemindersScreen(
                     IconButton(onClick = { settingsDialogActive = true }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
-                }
+                },
+                // Same light gray/lavender tone as a reminder card (see ReminderListItem) so the
+                // title bar reads as a distinct section rather than blending into the plain
+                // background behind it — the look the leftover native ActionBar used to have.
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             )
         },
         floatingActionButton = {
@@ -191,7 +200,10 @@ fun RemindersScreen(
             }
             LazyColumn(
                 Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                // Each item already carries 4dp of its own top padding (see ReminderListItem),
+                // but that reads as flush against the app bar; this adds a clearer gap.
+                contentPadding = PaddingValues(top = 8.dp)
             ) {
                 if (selectedTab == ReminderTab.TODAY) {
                     val incompleteToday = visibleReminders.filter { !it.reminder.complete }

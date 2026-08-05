@@ -118,7 +118,7 @@ fun ReminderListItem(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
-                               .padding(9.dp)
+                               .padding(horizontal = 14.dp, vertical = 9.dp)
                                .alpha(if (reminder.complete) 0.25f else 1.0f)
         ) {
             if (isOverdue) {

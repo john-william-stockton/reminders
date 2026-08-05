@@ -8,6 +8,13 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Scaled down 25% from the original 1:1 drawing (which read as too zoomed-in/large once
+         masked into the launcher icon shape) without hand-recomputing every coordinate. -->
+    <group
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:pivotX="54"
+        android:pivotY="54">
     <!-- Row 1: completed reminder -->
     <path
         android:fillColor="#6650A4"
@@ -51,4 +58,5 @@
         android:strokeWidth="7"
         android:strokeLineCap="round"
         android:pathData="M46,74 L70,74" />
+    </group>
 </vector>
