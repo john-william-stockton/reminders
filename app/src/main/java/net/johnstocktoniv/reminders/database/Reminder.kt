@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter
 // Note: "yyyy" (calendar year), not "YYYY" (week-based year) — the latter can roll over a day
 // early/late around the new year and silently show the wrong year.
 val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("M/d/yyyy")
-val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 fun parseDateOrNull(input: String): LocalDate? = runCatching { LocalDate.parse(input, dateFormatter) }.getOrNull()
 fun parseTimeOrNull(input: String): LocalTime? = runCatching { LocalTime.parse(input, timeFormatter) }.getOrNull()

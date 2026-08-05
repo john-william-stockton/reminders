@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +32,11 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
+import net.johnstocktoniv.reminders.ui.theme.OnSnoozeContainer
+import net.johnstocktoniv.reminders.ui.theme.OnSuccessContainer
 import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
+import net.johnstocktoniv.reminders.ui.theme.SnoozeContainer
+import net.johnstocktoniv.reminders.ui.theme.SuccessContainer
 import java.time.LocalDateTime
 
 class AlarmActivity : ComponentActivity() {
@@ -50,7 +54,6 @@ class AlarmActivity : ComponentActivity() {
                 AlarmScreen(
                     title = extras.title.ifBlank { "Reminder" },
                     description = extras.description,
-                    onDismiss = { dismiss() },
                     onComplete = { complete() },
                     onSnooze = { snooze() }
                 )
@@ -97,17 +100,12 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
-    private fun dismiss() {
-        stopAlerting()
-        finish()
-    }
-
     private fun complete() = withReminder { current ->
         AlarmScheduler.completeAndAdvance(applicationContext, current)
     }
 
     private fun snooze() = withReminder { current ->
-        val snoozeAt = LocalDateTime.now().plusMinutes(10)
+        val snoozeAt = LocalDateTime.now().plusMinutes(2)
         val updated = current.reminder.copy(date = snoozeAt.toLocalDate(), time = snoozeAt.toLocalTime())
         DatabaseProvider.dao(applicationContext).upsert(updated)
         AlarmScheduler.schedule(applicationContext, updated)
@@ -130,7 +128,6 @@ class AlarmActivity : ComponentActivity() {
 private fun AlarmScreen(
     title: String,
     description: String,
-    onDismiss: () -> Unit,
     onComplete: () -> Unit,
     onSnooze: () -> Unit
 ) {
@@ -144,22 +141,38 @@ private fun AlarmScreen(
         ) {
             Text("Reminder", style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(16.dp))
-            Text(title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineMedium.let {
+                    it.copy(fontSize = it.fontSize * 1.5f, lineHeight = it.lineHeight * 1.5f)
+                },
+                textAlign = TextAlign.Center
+            )
             if (description.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             }
             Spacer(Modifier.height(48.dp))
-            Button(onClick = onComplete, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onComplete,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SuccessContainer,
+                    contentColor = OnSuccessContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Mark Complete")
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = onSnooze, modifier = Modifier.fillMaxWidth()) {
-                Text("Snooze 10 minutes")
-            }
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                Text("Dismiss")
+            Button(
+                onClick = onSnooze,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SnoozeContainer,
+                    contentColor = OnSnoozeContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Snooze 2 minutes")
             }
         }
     }

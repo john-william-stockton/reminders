@@ -37,6 +37,8 @@ import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.database.dateFormatter
 import net.johnstocktoniv.reminders.database.timeFormatter
+import net.johnstocktoniv.reminders.ui.theme.OnSuccessContainer
+import net.johnstocktoniv.reminders.ui.theme.SuccessContainer
 import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlin.time.Duration.Companion.milliseconds
@@ -103,10 +105,10 @@ fun ReminderListItem(
                         "Mark Complete",
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .background(SuccessContainer)
                             .wrapContentSize(Alignment.CenterEnd)
                             .padding(12.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = OnSuccessContainer
                     )
                 }
                 SwipeToDismissBoxValue.Settled -> {}
@@ -116,7 +118,7 @@ fun ReminderListItem(
         Column(
             modifier = Modifier.fillMaxWidth()
                                .padding(9.dp)
-                               .alpha(if (reminder.complete) 0.1f else 1.0f)
+                               .alpha(if (reminder.complete) 0.25f else 1.0f)
         ) {
             if (isOverdue) {
                 Text(

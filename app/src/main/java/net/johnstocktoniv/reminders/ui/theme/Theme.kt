@@ -48,6 +48,14 @@ fun RemindersTheme(
 
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
+    }.let { scheme ->
+        // Always explicit, regardless of dynamic vs. static above, so the alarm screen's
+        // color doesn't shift with the device wallpaper.
+        if (darkTheme) {
+            scheme.copy(errorContainer = ErrorContainerDark, onErrorContainer = OnErrorContainerDark)
+        } else {
+            scheme.copy(errorContainer = ErrorContainerLight, onErrorContainer = OnErrorContainerLight)
+        }
     }
 
     MaterialTheme(
