@@ -4,6 +4,7 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 ## Not yet implemented
 
+- Ability to swipe between the filter tabs
 - Ability to export current database data to a YAML file and to read it and "restore" the database to that state (a potentially destructive action)
 - No editing of individual occurrences of a recurring reminder (edits apply to the current row
   only; future spawned occurrences reuse the original title/description/schedules)
@@ -36,7 +37,9 @@ A snapshot of what's implemented today and what's still open. Update this alongs
   - Three tabs: **Today**, **Incomplete**, **Complete**
   - Swipe right to delete, swipe left to mark complete
   - Long-press a reminder to edit it
-  - "Clear All" bulk-deletes completed reminders, with a confirmation dialog
+  - On the Complete tab, the floating action button doubles as "Clear All" — a red-tinted trash
+    icon that bulk-deletes completed reminders behind a confirmation dialog, hidden entirely when
+    there's nothing to clear; on other tabs it's the usual add-reminder button
   - In the "Today" tab, completed reminders default to a collapsed, overlapping card stack (each
     one behind and peeking out from under the reminder above it, with a slight drop shadow to
     reinforce the layering, and its description hidden to save space); tapping any completed

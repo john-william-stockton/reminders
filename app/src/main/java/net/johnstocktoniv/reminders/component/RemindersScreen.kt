@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -23,6 +22,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -164,11 +165,28 @@ fun RemindersScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { reminderDialogTarget = ReminderDialogTarget.Add },
-                modifier = Modifier.padding(12.dp).size(75.6.dp)
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Item", modifier = Modifier.size(36.dp))
+            // On the Complete tab the FAB doubles as the "clear all" trigger (red-tinted trash
+            // icon) instead of opening the add-reminder dialog; hidden entirely when there's
+            // nothing to clear, mirroring the old standalone button's visibility.
+            val isClearAll = selectedTab == ReminderTab.COMPLETE
+            if (!isClearAll || visibleReminders.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = {
+                        if (isClearAll) showClearAllConfirm = true
+                        else reminderDialogTarget = ReminderDialogTarget.Add
+                    },
+                    containerColor = if (isClearAll) MaterialTheme.colorScheme.errorContainer
+                        else FloatingActionButtonDefaults.containerColor,
+                    contentColor = if (isClearAll) MaterialTheme.colorScheme.onErrorContainer
+                        else contentColorFor(FloatingActionButtonDefaults.containerColor),
+                    modifier = Modifier.padding(12.dp).size(75.6.dp)
+                ) {
+                    if (isClearAll) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Clear All", modifier = Modifier.size(36.dp))
+                    } else {
+                        Icon(Icons.Filled.Add, contentDescription = "Add Item", modifier = Modifier.size(36.dp))
+                    }
+                }
             }
         },
         bottomBar = {
@@ -189,15 +207,6 @@ fun RemindersScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (selectedTab == ReminderTab.COMPLETE && visibleReminders.isNotEmpty()) {
-                Button(
-                    onClick = { showClearAllConfirm = true },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(Icons.Filled.Delete, contentDescription = null)
-                    Text("Clear All")
-                }
-            }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,

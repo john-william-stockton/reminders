@@ -183,26 +183,38 @@ class RemindersScreenTest {
     }
 
     @Test
-    fun clearAllButtonHiddenWhenCompleteTabEmpty() {
+    fun clearAllFabHiddenWhenCompleteTabEmpty() {
         setScreen(reminders = emptyList())
 
         composeTestRule.onNodeWithText("Complete").performClick()
 
-        composeTestRule.onNodeWithText("Clear All").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Clear All").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Add Item").assertDoesNotExist()
     }
 
     @Test
-    fun clearAllButtonShownAndTappingItShowsConfirmationDialogWithCount() {
+    fun clearAllFabShownAndTappingItShowsConfirmationDialogWithCount() {
         val completeOne = testReminder(id = 1, title = "Complete One", complete = true)
         val completeTwo = testReminder(id = 2, title = "Complete Two", complete = true)
         setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
 
         composeTestRule.onNodeWithText("Complete").performClick()
-        composeTestRule.onNodeWithText("Clear All").performClick()
+        composeTestRule.onNodeWithContentDescription("Clear All").performClick()
 
         composeTestRule.onNodeWithText(
             "This will permanently delete 2 completed reminder(s). This can't be undone."
         ).assertIsDisplayed()
+    }
+
+    @Test
+    fun addItemFabReplacedByClearAllOnCompleteTab() {
+        val completeOne = testReminder(id = 1, title = "Complete One", complete = true)
+        setScreen(reminders = listOf(completeOne).map { testReminderWithSchedules(it) })
+
+        composeTestRule.onNodeWithText("Complete").performClick()
+
+        composeTestRule.onNodeWithContentDescription("Add Item").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Clear All").assertIsDisplayed()
     }
 
     @Test
@@ -213,7 +225,7 @@ class RemindersScreenTest {
         setScreen(reminders = listOf(completeOne, completeTwo), onClearAll = { cleared = it })
 
         composeTestRule.onNodeWithText("Complete").performClick()
-        composeTestRule.onNodeWithText("Clear All").performClick()
+        composeTestRule.onNodeWithContentDescription("Clear All").performClick()
         composeTestRule.onNodeWithText("Delete").performClick()
 
         assert(cleared?.map { it.reminder.id }?.toSet() == setOf(1L, 2L)) { "was $cleared" }
@@ -227,7 +239,7 @@ class RemindersScreenTest {
         setScreen(reminders = listOf(completeOne), onClearAll = { clearAllCalled = true })
 
         composeTestRule.onNodeWithText("Complete").performClick()
-        composeTestRule.onNodeWithText("Clear All").performClick()
+        composeTestRule.onNodeWithContentDescription("Clear All").performClick()
         composeTestRule.onNodeWithText("Cancel").performClick()
 
         assert(!clearAllCalled) { "expected onClearAll not to be invoked" }
