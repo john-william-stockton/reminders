@@ -2,6 +2,7 @@ package net.johnstocktoniv.reminders.component
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -73,6 +74,84 @@ class RemindersScreenTest {
         val completeTop = composeTestRule.onNodeWithTag("reminderItem:1").fetchSemanticsNode().boundsInRoot.top
 
         assert(incompleteTop < completeTop) { "expected the incomplete item above the complete item" }
+    }
+
+    @Test
+    fun todayTabCollapsesCompletedRemindersIntoOffsetStackByDefault() {
+        val incomplete = testReminder(id = 1, title = "Incomplete", date = LocalDate.now())
+        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), complete = true)
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        setScreen(reminders = listOf(incomplete, completeOne, completeTwo).map { testReminderWithSchedules(it) })
+
+        val firstCompleteNode = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot
+        val secondCompleteTop = composeTestRule.onNodeWithTag("reminderItem:3").fetchSemanticsNode().boundsInRoot.top
+        val gap = secondCompleteTop - firstCompleteNode.top
+
+        assert(gap in 1f..(firstCompleteNode.height * 0.5f)) {
+            "expected a small peek offset between stacked completed items, was $gap (item height ${firstCompleteNode.height})"
+        }
+    }
+
+    @Test
+    fun tappingCompletedReminderExpandsThenCollapsesTheStack() {
+        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), complete = true)
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
+
+        val firstCompleteNode = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot
+        val collapsedSecondTop = composeTestRule.onNodeWithTag("reminderItem:3").fetchSemanticsNode().boundsInRoot.top
+        val collapsedGap = collapsedSecondTop - firstCompleteNode.top
+
+        composeTestRule.onNodeWithTag("reminderItem:2").performTouchInput { click() }
+
+        val expandedSecondTop = composeTestRule.onNodeWithTag("reminderItem:3").fetchSemanticsNode().boundsInRoot.top
+        val expandedGap = expandedSecondTop - firstCompleteNode.top
+        assert(expandedGap > firstCompleteNode.height * 0.8f) {
+            "expected the stack to expand to roughly full item height apart, was $expandedGap (item height ${firstCompleteNode.height})"
+        }
+        assert(expandedGap > collapsedGap) { "expected expanded gap ($expandedGap) to exceed collapsed gap ($collapsedGap)" }
+
+        composeTestRule.onNodeWithTag("reminderItem:2").performTouchInput { click() }
+
+        val recollapsedSecondTop = composeTestRule.onNodeWithTag("reminderItem:3").fetchSemanticsNode().boundsInRoot.top
+        val recollapsedGap = recollapsedSecondTop - firstCompleteNode.top
+        assert(recollapsedGap < expandedGap) { "expected re-collapsing to shrink the gap back down, was $recollapsedGap" }
+    }
+
+    @Test
+    fun completeTabDoesNotStackCompletedReminders() {
+        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), complete = true)
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
+
+        composeTestRule.onNodeWithText("Complete").performClick()
+
+        val firstCompleteNode = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot
+        val secondCompleteTop = composeTestRule.onNodeWithTag("reminderItem:3").fetchSemanticsNode().boundsInRoot.top
+        val gap = secondCompleteTop - firstCompleteNode.top
+
+        assert(gap > firstCompleteNode.height * 0.8f) {
+            "expected full-height spacing outside the Today tab, was $gap (item height ${firstCompleteNode.height})"
+        }
+    }
+
+    @Test
+    fun collapsedStackHidesDescriptionUntilExpanded() {
+        val completeOne = testReminder(
+            id = 2,
+            title = "Complete One",
+            description = "Some description text",
+            date = LocalDate.now(),
+            complete = true
+        )
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
+
+        composeTestRule.onNodeWithText("Some description text").assertDoesNotExist()
+
+        composeTestRule.onNodeWithTag("reminderItem:2").performTouchInput { click() }
+
+        composeTestRule.onNodeWithText("Some description text").assertIsDisplayed()
     }
 
     @Test

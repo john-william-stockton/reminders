@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -36,16 +37,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import net.johnstocktoniv.reminders.R
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import java.time.LocalDate
 import java.time.LocalTime
+
+// Fixed peek height for each reminder behind the top of the collapsed completed-reminders stack
+// (Today tab). A static offset (rather than a percentage of each item's own measured height)
+// keeps the stack's layout math simple and its peek height consistent regardless of how tall an
+// individual reminder's card happens to be (e.g. due to a long description).
+private val CompletedStackOffset = 16.dp
+
+// Slight shadow on each collapsed stack card, drawn with the same corner radius as the card
+// itself (see ReminderListItem's clip shape) so it reads as a subtle drop shadow rather than a
+// rectangular halo peeking out past the rounded corners.
+private val CompletedStackCardShape = RoundedCornerShape(16.dp)
+private val CompletedStackShadowElevation = 3.dp
 
 private sealed interface ReminderDialogTarget {
     data object Add : ReminderDialogTarget
@@ -74,6 +90,9 @@ fun RemindersScreen(
     var settingsDialogActive by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(ReminderTab.TODAY) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
+    // Today tab only: completed reminders default to a collapsed card stack; tapping any
+    // of them toggles the whole stack open/closed.
+    var completedCollapsed by remember { mutableStateOf(true) }
 
     val editingReminder = (reminderDialogTarget as? ReminderDialogTarget.Edit)?.reminder
     val visibleReminders = when (selectedTab) {
@@ -174,21 +193,130 @@ fun RemindersScreen(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                items(visibleReminders, key = { it.reminder.id }) { reminderWithSchedules ->
-                    ReminderListItem(
-                        reminderWithSchedules,
-                        defaultReminderTime = defaultReminderTime,
-                        onComplete = { onToggleComplete(reminderWithSchedules) },
-                        onDelete = { onDeleteReminder(reminderWithSchedules) },
-                        modifier = Modifier
-                            .testTag("reminderItem:${reminderWithSchedules.reminder.id}")
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onLongPress = { reminderDialogTarget = ReminderDialogTarget.Edit(reminderWithSchedules) }
-                                )
-                            }
-                    )
+                if (selectedTab == ReminderTab.TODAY) {
+                    val incompleteToday = visibleReminders.filter { !it.reminder.complete }
+                    val completedToday = visibleReminders.filter { it.reminder.complete }
+                    items(incompleteToday, key = { it.reminder.id }) { reminderWithSchedules ->
+                        ReminderRow(
+                            reminderWithSchedules,
+                            defaultReminderTime = defaultReminderTime,
+                            onComplete = { onToggleComplete(reminderWithSchedules) },
+                            onDelete = { onDeleteReminder(reminderWithSchedules) },
+                            onLongPress = { reminderDialogTarget = ReminderDialogTarget.Edit(reminderWithSchedules) }
+                        )
+                    }
+                    if (completedToday.isNotEmpty()) {
+                        item(key = "completed-stack") {
+                            CompletedReminderStack(
+                                reminders = completedToday,
+                                collapsed = completedCollapsed,
+                                defaultReminderTime = defaultReminderTime,
+                                onComplete = onToggleComplete,
+                                onDelete = onDeleteReminder,
+                                onEdit = { reminderDialogTarget = ReminderDialogTarget.Edit(it) },
+                                onToggleCollapsed = { completedCollapsed = !completedCollapsed }
+                            )
+                        }
+                    }
+                } else {
+                    items(visibleReminders, key = { it.reminder.id }) { reminderWithSchedules ->
+                        ReminderRow(
+                            reminderWithSchedules,
+                            defaultReminderTime = defaultReminderTime,
+                            onComplete = { onToggleComplete(reminderWithSchedules) },
+                            onDelete = { onDeleteReminder(reminderWithSchedules) },
+                            onLongPress = { reminderDialogTarget = ReminderDialogTarget.Edit(reminderWithSchedules) }
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReminderRow(
+    reminderWithSchedules: ReminderWithSchedules,
+    defaultReminderTime: LocalTime,
+    onComplete: () -> Unit,
+    onDelete: () -> Unit,
+    onLongPress: () -> Unit,
+    onTap: (() -> Unit)? = null,
+    showDescription: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    ReminderListItem(
+        reminderWithSchedules,
+        defaultReminderTime = defaultReminderTime,
+        onComplete = onComplete,
+        onDelete = onDelete,
+        showDescription = showDescription,
+        modifier = modifier
+            .testTag("reminderItem:${reminderWithSchedules.reminder.id}")
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = { onLongPress() },
+                    onTap = onTap?.let { callback -> { callback() } }
+                )
+            }
+    )
+}
+
+// Today tab only. Collapsed: completed reminders render as a card stack, each one behind and
+// peeking CompletedStackOffset lower than the one above (only the frontmost is fully visible/
+// interactive) so they take up minimal space. Expanded: they render as a normal vertical list,
+// same as any other tab. Tapping any completed reminder toggles between the two.
+@Composable
+private fun CompletedReminderStack(
+    reminders: List<ReminderWithSchedules>,
+    collapsed: Boolean,
+    defaultReminderTime: LocalTime,
+    onComplete: (ReminderWithSchedules) -> Unit,
+    onDelete: (ReminderWithSchedules) -> Unit,
+    onEdit: (ReminderWithSchedules) -> Unit,
+    onToggleCollapsed: () -> Unit,
+) {
+    if (!collapsed || reminders.size <= 1) {
+        Column {
+            reminders.forEach { reminderWithSchedules ->
+                ReminderRow(
+                    reminderWithSchedules,
+                    defaultReminderTime = defaultReminderTime,
+                    onComplete = { onComplete(reminderWithSchedules) },
+                    onDelete = { onDelete(reminderWithSchedules) },
+                    onLongPress = { onEdit(reminderWithSchedules) },
+                    onTap = onToggleCollapsed
+                )
+            }
+        }
+        return
+    }
+
+    Layout(
+        content = {
+            reminders.forEachIndexed { index, reminderWithSchedules ->
+                ReminderRow(
+                    reminderWithSchedules,
+                    defaultReminderTime = defaultReminderTime,
+                    onComplete = { onComplete(reminderWithSchedules) },
+                    onDelete = { onDelete(reminderWithSchedules) },
+                    onLongPress = { onEdit(reminderWithSchedules) },
+                    onTap = onToggleCollapsed,
+                    showDescription = false,
+                    modifier = Modifier
+                        .zIndex((reminders.size - index).toFloat())
+                        .shadow(CompletedStackShadowElevation, CompletedStackCardShape)
+                )
+            }
+        }
+    ) { measurables, constraints ->
+        val placeables = measurables.map { it.measure(constraints) }
+        val offsetPx = CompletedStackOffset.roundToPx()
+        val width = placeables.maxOf { it.width }
+        val height = placeables.indices.maxOf { index -> index * offsetPx + placeables[index].height }
+        layout(width, height) {
+            placeables.forEachIndexed { index, placeable ->
+                placeable.placeRelative(x = 0, y = index * offsetPx)
             }
         }
     }

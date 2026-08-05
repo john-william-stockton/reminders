@@ -49,7 +49,8 @@ fun ReminderListItem(
     defaultReminderTime: LocalTime,
     onComplete: () -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
+    showDescription: Boolean = true,
 ) {
     val reminder = reminderWithSchedules.reminder
     // Composition only runs again when this item's own state changes, but "is this reminder
@@ -157,7 +158,7 @@ fun ReminderListItem(
                     )
                 }
             }
-            if (reminder.description != "") {
+            if (showDescription && reminder.description != "") {
                 Text(reminder.description)
             }
         }

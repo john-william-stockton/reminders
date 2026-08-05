@@ -36,6 +36,11 @@ A snapshot of what's implemented today and what's still open. Update this alongs
   - Swipe right to delete, swipe left to mark complete
   - Long-press a reminder to edit it
   - "Clear All" bulk-deletes completed reminders, with a confirmation dialog
+  - In the "Today" tab, completed reminders default to a collapsed, overlapping card stack (each
+    one behind and peeking out from under the reminder above it, with a slight drop shadow to
+    reinforce the layering, and its description hidden to save space); tapping any completed
+    reminder toggles the stack between collapsed and fully expanded (descriptions reappear once
+    expanded)
 
 - **Alarms & notifications**
   - Full-screen alarm activity that shows over the lock screen and vibrates (no alarm sound, by
