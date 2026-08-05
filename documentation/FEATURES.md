@@ -4,6 +4,7 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 ## Not yet implemented
 
+- Ability to export current database data to a YAML file and to read it and "restore" the database to that state (a potentially destructive action)
 - No editing of individual occurrences of a recurring reminder (edits apply to the current row
   only; future spawned occurrences reuse the original title/description/schedules)
 - No categories, tags, priorities, or search/filter beyond the three tabs
