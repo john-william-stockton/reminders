@@ -49,6 +49,12 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 - **Testing**
   - Unit tests for CRON schedule parsing and next-occurrence computation
     (`CronScheduleTest`)
+  - Compose UI tests for the reminder and settings dialogs, the alarm screen, and the main list
+    screen (`ReminderDialogTest`, `SettingsDialogTest`, `AlarmScreenTest`, `RemindersScreenTest`).
+    The main screen's UI lives in a dependency-free `RemindersScreen` composable (mirroring the
+    `AlarmActivity`/`AlarmScreen` split) so it can be tested without a real device database or
+    system permissions; `Main`'s own Activity wiring (DB, `AlarmManager`, permission requests) is
+    not covered by these tests
 
 ## Not yet implemented
 
@@ -63,4 +69,5 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 - No dark/light theme toggle beyond system default
 - Default `ExampleUnitTest` / `ExampleInstrumentedTest` templates are still unmodified boilerplate,
   not real coverage
-- No UI/Compose tests for `Main`, dialogs, or the alarm screen
+- No instrumented test launches the real `Main` Activity end-to-end (real Room DB, `AlarmManager`,
+  permission-request navigation) — only its extracted `RemindersScreen` composable is covered

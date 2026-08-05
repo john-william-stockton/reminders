@@ -11,6 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import net.johnstocktoniv.reminders.database.parseTimeOrNull
 import net.johnstocktoniv.reminders.database.timeFormatter
 import java.time.LocalTime
@@ -46,7 +48,8 @@ fun SettingsDialog(
                     supportingText = {
                         if (showError && !timeValid) Text("Use the format shown when the dialog opens")
                     },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.testTag("defaultTimeField")
                 )
             }
         },

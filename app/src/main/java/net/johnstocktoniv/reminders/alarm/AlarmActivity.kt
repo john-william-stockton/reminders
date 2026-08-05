@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -127,7 +128,7 @@ class AlarmActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AlarmScreen(
+internal fun AlarmScreen(
     title: String,
     description: String,
     onComplete: () -> Unit,
@@ -152,7 +153,12 @@ private fun AlarmScreen(
             )
             if (description.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
-                Text(description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("alarmDescription")
+                )
             }
             Spacer(Modifier.height(48.dp))
             // Double the Material 3 default button height (40.dp) and scale the label to match,
