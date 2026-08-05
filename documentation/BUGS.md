@@ -4,6 +4,7 @@ Known defects in the current codebase. Update this alongside bug fixes and new d
 
 ## Open
 
+- Adding CRON expression to a reminder and then reopening it for editing does not reflect the newly added expression
 - **Alarm screen's back button bypasses the "no plain dismiss" design.** `AlarmActivity` never
   intercepts the system back gesture/button. Pressing back finishes the activity, which runs
   `onDestroy()` → `stopAlerting()` (cancels vibration, clears the notification) without going
