@@ -4,22 +4,32 @@ Known defects in the current codebase. Update this alongside bug fixes and new d
 
 ## Open
 
-- Adding CRON expression to a reminder and then reopening it for editing does not reflect the newly added expression
-- **Alarm screen's back button bypasses the "no plain dismiss" design.** `AlarmActivity` never
-  intercepts the system back gesture/button. Pressing back finishes the activity, which runs
-  `onDestroy()` → `stopAlerting()` (cancels vibration, clears the notification) without going
-  through `complete()` or `snooze()`. That silently dismisses the alarm — exactly what the UI (no
-  dismiss button, per FEATURES.md) is meant to prevent.
-- **A second alarm arriving while one is already showing can be lost.** `AlarmReceiver` launches
-  `AlarmActivity` with `FLAG_ACTIVITY_SINGLE_TOP | FLAG_ACTIVITY_CLEAR_TOP`, so if the activity is
-  already on screen, Android reuses that instance and delivers the new alarm via `onNewIntent()`
-  rather than `onCreate()`. `AlarmActivity` doesn't override `onNewIntent()` (or call
-  `setIntent()`), so `extras` — computed lazily from `intent` — keeps referring to the first
-  reminder. The screen keeps showing the first reminder, and completing/snoozing from it acts on
-  the first reminder's id, not the newly-arrived one.
+(none currently)
 
 ## Resolved
 
+- **A second alarm arriving while one was already showing could be lost.** `AlarmReceiver` launches
+  `AlarmActivity` with `FLAG_ACTIVITY_SINGLE_TOP | FLAG_ACTIVITY_CLEAR_TOP`, so if the activity is
+  already on screen, Android reuses that instance and delivers the new alarm via `onNewIntent()`
+  rather than `onCreate()`. `AlarmActivity` didn't override `onNewIntent()` (or call `setIntent()`),
+  so `extras` — computed via `by lazy` from `intent` — kept referring to the first reminder: the
+  screen kept showing it, and completing/snoozing acted on its id, not the newly-arrived one. Fixed
+  by overriding `onNewIntent()` to call `setIntent()` and refresh `extras` (now a Compose-observable
+  `mutableStateOf`, not a one-shot `lazy`), so the screen and its actions always track whichever
+  alarm most recently arrived.
+- **Alarm screen's back button bypassed the "no plain dismiss" design.** `AlarmActivity` never
+  intercepted the system back gesture/button, so pressing back finished the activity, running
+  `onDestroy()` → `stopAlerting()` (cancels vibration, clears the notification) without going
+  through `complete()` or `snooze()` — silently dismissing the alarm. Fixed by registering an
+  `onBackPressedDispatcher` callback in `onCreate()` that swallows back presses, leaving Mark
+  Complete/Snooze as the only ways to silence the alarm.
+- **Adding a CRON expression to a reminder and then reopening it for editing didn't reflect the
+  newly added expression.** `RemindersScreen`'s edit dialog closed `onSaveReminder` as soon as it
+  was invoked, without waiting for the (asynchronous, fire-and-forget) DB write it kicks off in
+  `Main.kt` to actually complete. Reopening the same reminder quickly enough could race that write,
+  reading the reminders list before the new schedule had landed. Fixed by making `onSaveReminder`
+  a suspend callback that `RemindersScreen` awaits (via `rememberCoroutineScope()`) before closing
+  the dialog, so a reopen always sees the just-saved data.
 - **Default `ExampleUnitTest` / `ExampleInstrumentedTest` templates were still unmodified
   boilerplate, not real coverage.** Neither exercised any app code (one asserted `2 + 2 == 4`, the
   other just checked the package name). Real coverage already existed elsewhere (`CronScheduleTest`,

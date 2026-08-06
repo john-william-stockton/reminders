@@ -1,6 +1,7 @@
 package net.johnstocktoniv.reminders.alarm
 
 import android.app.KeyguardManager
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -8,6 +9,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -44,13 +49,24 @@ import java.time.LocalDateTime
 
 class AlarmActivity : ComponentActivity() {
     private var vibrator: Vibrator? = null // gross lol
-    private val extras by lazy { AlarmScheduler.extrasFrom(intent) }
+
+    // A Compose-observable var (not `by lazy` over `intent`, and not a plain `val`) so that
+    // onNewIntent() below can actually update what's on screen and what Mark Complete/Snooze act
+    // on — see onNewIntent() for why that matters.
+    private var extras by mutableStateOf(AlarmExtras(reminderId = -1L, title = "", description = ""))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        extras = AlarmScheduler.extrasFrom(intent)
         showOverLockScreen()
         startAlerting()
         enableEdgeToEdge()
+
+        // No plain dismiss, by design (see FEATURES.md) — back would otherwise finish the
+        // activity and silently stop the alarm via onDestroy()/stopAlerting() without going
+        // through complete() or snooze(). Swallow it instead so Mark Complete/Snooze stay the
+        // only ways to silence the alarm.
+        onBackPressedDispatcher.addCallback(this) { }
 
         setContent {
             RemindersTheme {
@@ -62,6 +78,19 @@ class AlarmActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    // Public (widened from the framework's protected onNewIntent) so tests can invoke it directly
+    // to simulate a second alarm arriving while this activity is already showing.
+    public override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // AlarmReceiver launches AlarmActivity with SINGLE_TOP|CLEAR_TOP, so a second alarm
+        // arriving while this activity is already showing reuses this instance and delivers the
+        // new alarm here instead of onCreate(). Without updating the held intent/extras, the
+        // screen (and Mark Complete/Snooze) would keep referring to the first reminder, silently
+        // losing whichever one just arrived.
+        setIntent(intent)
+        extras = AlarmScheduler.extrasFrom(intent)
     }
 
     override fun onDestroy() {

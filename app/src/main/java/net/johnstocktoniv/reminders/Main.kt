@@ -86,12 +86,10 @@ class Main : ComponentActivity() {
                     reminders = reminders,
                     defaultReminderTime = defaultReminderTime,
                     onSaveReminder = { reminder, cronExpressions ->
-                        lifecycleScope.launch {
-                            val isNew = reminder.id == 0L
-                            val newId = dao.saveWithSchedules(reminder, cronExpressions)
-                            val saved = if (isNew) reminder.copy(id = newId) else reminder
-                            AlarmScheduler.schedule(applicationContext, saved)
-                        }
+                        val isNew = reminder.id == 0L
+                        val newId = dao.saveWithSchedules(reminder, cronExpressions)
+                        val saved = if (isNew) reminder.copy(id = newId) else reminder
+                        AlarmScheduler.schedule(applicationContext, saved)
                     },
                     onSaveSettings = { time ->
                         SettingsRepository.setDefaultReminderTime(applicationContext, time)

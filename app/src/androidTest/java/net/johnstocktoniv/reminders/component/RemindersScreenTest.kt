@@ -1,5 +1,8 @@
 package net.johnstocktoniv.reminders.component
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.click
@@ -31,7 +34,7 @@ class RemindersScreenTest {
     private fun setScreen(
         reminders: List<ReminderWithSchedules> = emptyList(),
         defaultReminderTime: LocalTime = LocalTime.of(8, 0),
-        onSaveReminder: (Reminder, List<String>) -> Unit = { _, _ -> },
+        onSaveReminder: suspend (Reminder, List<String>) -> Unit = { _, _ -> },
         onSaveSettings: (LocalTime) -> Unit = {},
         onToggleComplete: (ReminderWithSchedules) -> Unit = {},
         onDeleteReminder: (ReminderWithSchedules) -> Unit = {},
@@ -270,6 +273,46 @@ class RemindersScreenTest {
 
         assert(savedReminder?.title == "New Task") { "was ${savedReminder?.title}" }
         composeTestRule.onNodeWithText("Add Reminder").assertDoesNotExist()
+    }
+
+    // Regression test for a bug where reopening a reminder right after adding a CRON schedule to
+    // it showed stale (pre-save) data: the dialog closed as soon as onSaveReminder was invoked,
+    // without waiting for the (asynchronous) DB write it kicks off to actually complete, so a fast
+    // reopen could race it and read the reminder list before the new schedule landed.
+    @Test
+    fun reopeningEditDialogAfterAddingCronReflectsTheNewSchedule() {
+        var reminders by mutableStateOf(listOf(testReminderWithSchedules(testReminder(id = 1, title = "Water plants"))))
+
+        composeTestRule.setContent {
+            RemindersTheme {
+                RemindersScreen(
+                    reminders = reminders,
+                    defaultReminderTime = LocalTime.of(8, 0),
+                    onSaveReminder = { reminder, cronExpressions ->
+                        // Stands in for the real save: DAO write + Flow re-emission.
+                        reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = cronExpressions))
+                    },
+                    onSaveSettings = {},
+                    onToggleComplete = {},
+                    onDeleteReminder = {},
+                    onClearAll = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("reminderItem:1").performTouchInput { longClick() }
+        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
+        composeTestRule.onNodeWithText("Add schedule").performClick()
+        composeTestRule.onNodeWithTag("cronField:0").performTextInput("0 9 * * *")
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        // Saving a recurring reminder recomputes its date to the CRON's next occurrence, which
+        // may no longer be today (e.g. if it's already past 9am) — switch to the Incomplete tab,
+        // which (per incompleteTabShowsAllIncompleteRegardlessOfDate below) shows it regardless.
+        composeTestRule.onNodeWithText("Incomplete").performClick()
+        composeTestRule.onNodeWithTag("reminderItem:1").performTouchInput { longClick() }
+
+        composeTestRule.onNodeWithTag("cronField:0").assertTextContains("0 9 * * *")
     }
 
     @Test

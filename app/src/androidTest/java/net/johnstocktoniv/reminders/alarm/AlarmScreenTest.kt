@@ -78,8 +78,8 @@ class AlarmScreenTest {
         setScreen()
 
         // Regression guard for the "no plain dismiss" alarm-screen design: Mark Complete and
-        // Snooze should be the only two clickable actions. (The system back button bypassing
-        // this entirely is a separate, already-logged gap in BUGS.md — not exercised here.)
+        // Snooze should be the only two clickable actions. (The system back button is a separate
+        // concern, covered by AlarmActivityTest since it's intercepted at the Activity level.)
         composeTestRule.onAllNodes(hasClickAction()).assertCountEquals(2)
     }
 

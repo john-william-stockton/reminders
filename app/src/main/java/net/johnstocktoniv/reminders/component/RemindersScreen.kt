@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.R
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
@@ -84,7 +86,7 @@ private enum class ReminderTab(val label: String, val icon: ImageVector) {
 fun RemindersScreen(
     reminders: List<ReminderWithSchedules>,
     defaultReminderTime: LocalTime,
-    onSaveReminder: (Reminder, List<String>) -> Unit,
+    onSaveReminder: suspend (Reminder, List<String>) -> Unit,
     onSaveSettings: (LocalTime) -> Unit,
     onToggleComplete: (ReminderWithSchedules) -> Unit,
     onDeleteReminder: (ReminderWithSchedules) -> Unit,
@@ -93,6 +95,7 @@ fun RemindersScreen(
     onImportBackup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var reminderDialogTarget by remember { mutableStateOf<ReminderDialogTarget?>(null) }
     var settingsDialogActive by remember { mutableStateOf(false) }
     var backupDialogActive by remember { mutableStateOf(false) }
@@ -135,8 +138,13 @@ fun RemindersScreen(
         defaultReminderTime = defaultReminderTime,
         onCancel = { reminderDialogTarget = null },
         onSave = { reminder, cronExpressions ->
-            onSaveReminder(reminder, cronExpressions)
-            reminderDialogTarget = null
+            // Awaits the write before closing: closing immediately let a fast reopen of the same
+            // reminder race the DB write, showing stale schedules if it hadn't landed yet (e.g.
+            // right after adding a CRON schedule and immediately reopening to confirm it saved).
+            coroutineScope.launch {
+                onSaveReminder(reminder, cronExpressions)
+                reminderDialogTarget = null
+            }
         },
         reminderWithSchedules = editingReminder
     )
