@@ -24,12 +24,16 @@ Known defects in the current codebase. Update this alongside bug fixes and new d
   `onBackPressedDispatcher` callback in `onCreate()` that swallows back presses, leaving Mark
   Complete/Snooze as the only ways to silence the alarm.
 - **Adding a CRON expression to a reminder and then reopening it for editing didn't reflect the
-  newly added expression.** `RemindersScreen`'s edit dialog closed `onSaveReminder` as soon as it
-  was invoked, without waiting for the (asynchronous, fire-and-forget) DB write it kicks off in
-  `Main.kt` to actually complete. Reopening the same reminder quickly enough could race that write,
-  reading the reminders list before the new schedule had landed. Fixed by making `onSaveReminder`
-  a suspend callback that `RemindersScreen` awaits (via `rememberCoroutineScope()`) before closing
-  the dialog, so a reopen always sees the just-saved data.
+  newly added expression — persisted even after making `onSaveReminder` a suspend callback that's
+  awaited before the dialog closes (which fixed a real but ultimately unrelated DB-write race).**
+  The actual cause: `ReminderRow`'s `Modifier.pointerInput(Unit) { detectTapGestures(...) }` keys
+  its gesture-detection coroutine on `Unit`, so it launches once per list item and never restarts.
+  Its `onLongPress`/`onTap` lambdas were called directly (not via `rememberUpdatedState`), so they
+  stayed bound to whichever `reminderWithSchedules` closure existed at that item's *first*
+  composition — reopening the same on-screen row for editing kept showing that original data no
+  matter how many times it was saved, until the row itself was torn down and recomposed fresh
+  (switching tabs, reopening the app). Fixed by wrapping `onLongPress`/`onTap` in
+  `rememberUpdatedState` so the always-running gesture coroutine reads the latest closure.
 - **Default `ExampleUnitTest` / `ExampleInstrumentedTest` templates were still unmodified
   boilerplate, not real coverage.** Neither exercised any app code (one asserted `2 + 2 == 4`, the
   other just checked the package name). Real coverage already existed elsewhere (`CronScheduleTest`,

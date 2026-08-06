@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -293,6 +294,14 @@ private fun ReminderRow(
     showDescription: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    // pointerInput(Unit) below launches its gesture-detection coroutine once per list item and
+    // never restarts it (its key never changes), so without rememberUpdatedState it would keep
+    // invoking whichever onLongPress/onTap closure existed at that item's *first* composition
+    // forever — e.g. reopening a reminder right after editing it would still show pre-edit data,
+    // since the captured closure's `reminderWithSchedules` never advances past its initial value.
+    // Only recomposing the item itself (switching tabs, restarting the app) picked up new data.
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val currentOnTap by rememberUpdatedState(onTap)
     ReminderListItem(
         reminderWithSchedules,
         defaultReminderTime = defaultReminderTime,
@@ -303,8 +312,8 @@ private fun ReminderRow(
             .testTag("reminderItem:${reminderWithSchedules.reminder.id}")
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onLongPress = { onLongPress() },
-                    onTap = onTap?.let { callback -> { callback() } }
+                    onLongPress = { currentOnLongPress() },
+                    onTap = { currentOnTap?.invoke() }
                 )
             }
     )

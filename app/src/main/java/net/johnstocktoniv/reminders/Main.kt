@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -90,6 +91,18 @@ class Main : ComponentActivity() {
                         val newId = dao.saveWithSchedules(reminder, cronExpressions)
                         val saved = if (isNew) reminder.copy(id = newId) else reminder
                         AlarmScheduler.schedule(applicationContext, saved)
+                        // saveWithSchedules() only guarantees the write has committed, not that
+                        // this composition's `reminders` state (what a reopened edit dialog reads
+                        // its initial fields from) has caught up: readAll()'s Flow re-queries
+                        // asynchronously off Room's own invalidation dispatch, so a second,
+                        // independent collection of it (e.g. remindersFlow.first { ... }) can
+                        // settle from a fresh query before *this* collector's
+                        // collectAsStateWithLifecycle-backed state actually recomposes with the
+                        // new value. Waiting on `reminders` itself via snapshotFlow ties the wait
+                        // to that exact state instead.
+                        snapshotFlow { reminders }.first { list ->
+                            list.find { it.reminder.id == saved.id }?.schedules?.map { it.cronExpression } == cronExpressions
+                        }
                     },
                     onSaveSettings = { time ->
                         SettingsRepository.setDefaultReminderTime(applicationContext, time)
