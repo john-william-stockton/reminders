@@ -46,3 +46,10 @@ Known defects in the current codebase. Update this alongside bug fixes and new d
   having `completeAndAdvance()` check `ReminderDao.findDuplicate()` (matching title, description,
   date, and time on an incomplete reminder) before inserting, so it only skips its own internal
   spawn — manual duplicate creation through the UI is unaffected.
+- **The `Today` tab didn't surface overdue reminders.** It only ever showed reminders dated exactly
+  today, so anything left incomplete from an earlier date silently disappeared from the tab meant
+  to show what needs attention (it was still reachable via the `Incomplete` tab, just not
+  prioritized). Fixed by widening the tab's filter to include still-incomplete reminders from any
+  earlier date, and sorting so overdue ones land above today's (oldest overdue first); an overdue
+  reminder that's already complete stays excluded, same as before, since it has nothing left to
+  surface.

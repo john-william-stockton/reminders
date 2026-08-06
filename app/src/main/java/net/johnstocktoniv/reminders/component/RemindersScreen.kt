@@ -108,9 +108,14 @@ fun RemindersScreen(
 
     val editingReminder = (reminderDialogTarget as? ReminderDialogTarget.Edit)?.reminder
     val visibleReminders = when (selectedTab) {
-        // Only reminders actually due today; stable sort keeps incomplete above complete.
-        ReminderTab.TODAY -> reminders.filter { it.reminder.date == LocalDate.now() }
-            .sortedBy { it.reminder.complete }
+        // Reminders due today, plus anything still-incomplete from an earlier date (overdue
+        // reminders that are already complete have nothing left to surface here — they stay
+        // visible only in the Complete tab). Sorted incomplete-before-complete, then oldest-date
+        // first within each group; the stable sort still falls back to `reminders`' own DB order
+        // (date then time) to order same-day items by time.
+        ReminderTab.TODAY -> reminders.filter {
+            it.reminder.date == LocalDate.now() || (it.reminder.date < LocalDate.now() && !it.reminder.complete)
+        }.sortedWith(compareBy({ it.reminder.complete }, { it.reminder.date }))
         ReminderTab.INCOMPLETE -> reminders.filter { !it.reminder.complete }
         ReminderTab.COMPLETE -> reminders.filter { it.reminder.complete }
     }

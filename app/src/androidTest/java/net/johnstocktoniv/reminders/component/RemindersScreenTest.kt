@@ -70,6 +70,39 @@ class RemindersScreenTest {
     }
 
     @Test
+    fun todayTabIncludesIncompleteOverdueReminders() {
+        val overdue = testReminder(id = 1, title = "Overdue Item", date = LocalDate.now().minusDays(3))
+        setScreen(reminders = listOf(overdue).map { testReminderWithSchedules(it) })
+
+        composeTestRule.onNodeWithText("Overdue Item").assertIsDisplayed()
+    }
+
+    @Test
+    fun todayTabExcludesCompleteOverdueReminders() {
+        val overdueComplete = testReminder(
+            id = 1,
+            title = "Overdue Complete Item",
+            date = LocalDate.now().minusDays(3),
+            complete = true
+        )
+        setScreen(reminders = listOf(overdueComplete).map { testReminderWithSchedules(it) })
+
+        composeTestRule.onNodeWithText("Overdue Complete Item").assertDoesNotExist()
+    }
+
+    @Test
+    fun todayTabSortsOverdueAboveTodayItems() {
+        val today = testReminder(id = 1, title = "Today Item", date = LocalDate.now())
+        val overdue = testReminder(id = 2, title = "Overdue Item", date = LocalDate.now().minusDays(1))
+        setScreen(reminders = listOf(today, overdue).map { testReminderWithSchedules(it) })
+
+        val overdueTop = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot.top
+        val todayTop = composeTestRule.onNodeWithTag("reminderItem:1").fetchSemanticsNode().boundsInRoot.top
+
+        assert(overdueTop < todayTop) { "expected the overdue item above today's item" }
+    }
+
+    @Test
     fun todayTabSortsIncompleteAboveComplete() {
         // Deliberately pass the complete item first so a naive "list order" read would get this
         // wrong if the stable sort broke.

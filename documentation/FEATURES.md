@@ -33,6 +33,9 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 - **List & navigation**
   - Three tabs: **Today**, **Incomplete**, **Complete**
+  - The "Today" tab also surfaces still-incomplete reminders left over from earlier dates
+    (overdue), sorted above today's own reminders (oldest overdue first); an overdue reminder
+    that's already complete is not shown there
   - Swipe right to delete, swipe left to mark complete
   - Long-press a reminder to edit it
   - On the Complete tab, the floating action button doubles as "Clear All" — a red-tinted trash
