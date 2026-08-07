@@ -22,7 +22,6 @@ import net.johnstocktoniv.reminders.backup.ReminderBackup
 import net.johnstocktoniv.reminders.component.RemindersScreen
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.ReminderDao
-import net.johnstocktoniv.reminders.settings.SettingsRepository
 import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 
 class Main : ComponentActivity() {
@@ -73,7 +72,6 @@ class Main : ComponentActivity() {
         setTheme(R.style.Theme_Reminders)
         dao = DatabaseProvider.dao(applicationContext)
         val remindersFlow = dao.readAll()
-        val defaultReminderTimeFlow = SettingsRepository.defaultReminderTime(applicationContext)
         enableEdgeToEdge()
         requestAlarmPermissionsIfNeeded()
 
@@ -82,10 +80,8 @@ class Main : ComponentActivity() {
         setContent {
             RemindersTheme {
                 val reminders by remindersFlow.collectAsStateWithLifecycle(initialValue = emptyList())
-                val defaultReminderTime by defaultReminderTimeFlow.collectAsStateWithLifecycle()
                 RemindersScreen(
                     reminders = reminders,
-                    defaultReminderTime = defaultReminderTime,
                     onSaveReminder = { reminder, cronExpressions ->
                         val isNew = reminder.id == 0L
                         val newId = dao.saveWithSchedules(reminder, cronExpressions)
@@ -103,13 +99,6 @@ class Main : ComponentActivity() {
                         snapshotFlow { reminders }.first { list ->
                             list.find { it.reminder.id == saved.id }?.schedules?.map { it.cronExpression } == cronExpressions
                         }
-                    },
-                    onSaveSettings = { time ->
-                        SettingsRepository.setDefaultReminderTime(applicationContext, time)
-                        // Reminders without an explicit time use the default; re-arm them so
-                        // their alarms move to the new default time.
-                        reminders.map { it.reminder }.filter { it.time == null }
-                            .forEach { reminder -> AlarmScheduler.schedule(applicationContext, reminder) }
                     },
                     onToggleComplete = { reminderWithSchedules ->
                         val reminder = reminderWithSchedules.reminder

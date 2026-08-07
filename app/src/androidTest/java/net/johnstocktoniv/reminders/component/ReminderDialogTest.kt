@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import net.johnstocktoniv.reminders.STABLE_FUTURE_CRON
 import net.johnstocktoniv.reminders.alarm.nextOccurrence
@@ -30,8 +29,6 @@ class ReminderDialogTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private val defaultTime = LocalTime.of(8, 0)
-
     private fun setDialog(
         isOpen: Boolean = true,
         reminderWithSchedules: ReminderWithSchedules? = null,
@@ -42,7 +39,6 @@ class ReminderDialogTest {
             RemindersTheme {
                 ReminderDialog(
                     isOpen = isOpen,
-                    defaultReminderTime = defaultTime,
                     onCancel = onCancel,
                     onSave = onSave,
                     reminderWithSchedules = reminderWithSchedules
@@ -59,27 +55,24 @@ class ReminderDialogTest {
     }
 
     @Test
-    fun addModeShowsAddReminderTitle() {
+    fun addModeShowsAddReminderTitleAndOneBlankScheduleRow() {
         setDialog()
 
         composeTestRule.onNodeWithText("Add Reminder").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("cronField:0").assertIsDisplayed()
     }
 
     @Test
     fun editModeShowsEditReminderTitleAndPrefillsFields() {
-        val reminder = testReminder(
-            title = "Water plants",
-            description = "Ferns need extra",
-            date = LocalDate.now().plusDays(3),
-            time = LocalTime.of(9, 30)
+        val reminder = testReminder(title = "Water plants", description = "Ferns need extra")
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * 1-5"))
         )
-        setDialog(reminderWithSchedules = testReminderWithSchedules(reminder = reminder))
 
         composeTestRule.onNodeWithText("Edit Reminder").assertIsDisplayed()
         composeTestRule.onNodeWithTag("titleField").assertTextContains("Water plants")
         composeTestRule.onNodeWithTag("descriptionField").assertTextContains("Ferns need extra")
-        composeTestRule.onNodeWithTag("dateField").assertTextContains(reminder.date.format(dateFormatter))
-        composeTestRule.onNodeWithTag("timeField").assertTextContains(reminder.time!!.format(timeFormatter))
+        composeTestRule.onNodeWithTag("cronField:0").assertTextContains("0 9 * * 1-5")
     }
 
     @Test
@@ -96,85 +89,51 @@ class ReminderDialogTest {
         var saveCalled = false
         setDialog(onSave = { _, _ -> saveCalled = true })
 
+        composeTestRule.onNodeWithTag("cronField:0").performTextInput(STABLE_FUTURE_CRON)
         composeTestRule.onNodeWithText("Save").performClick()
 
         assert(!saveCalled) { "expected onSave not to be invoked" }
     }
 
     @Test
-    fun validOneTimeSaveInvokesOnSaveWithTrimmedTitleAndDescription() {
+    fun validSaveInvokesOnSaveWithTrimmedTitleAndDescriptionAndComputedDateTime() {
         var savedReminder: Reminder? = null
         var savedSchedules: List<String>? = null
         setDialog(onSave = { reminder, schedules -> savedReminder = reminder; savedSchedules = schedules })
 
         composeTestRule.onNodeWithTag("titleField").performTextInput(" Buy milk ")
         composeTestRule.onNodeWithTag("descriptionField").performTextInput(" 2% ")
+        composeTestRule.onNodeWithTag("cronField:0").performTextInput(STABLE_FUTURE_CRON)
+
+        val expected = nextOccurrence(
+            listOf(ReminderSchedule(reminderId = 0, cronExpression = STABLE_FUTURE_CRON)),
+            LocalDateTime.now()
+        )!!
+
         composeTestRule.onNodeWithText("Save").performClick()
 
         assert(savedReminder?.title == "Buy milk") { "was ${savedReminder?.title}" }
         assert(savedReminder?.description == "2%") { "was ${savedReminder?.description}" }
-        assert(savedSchedules == emptyList<String>())
-    }
-
-    @Test
-    fun invalidDateShowsErrorOnSaveAttempt() {
-        setDialog()
-
-        composeTestRule.onNodeWithTag("titleField").performTextInput("Something")
-        composeTestRule.onNodeWithTag("dateField").performTextClearance()
-        composeTestRule.onNodeWithTag("dateField").performTextInput("not a date")
-        composeTestRule.onNodeWithText("Save").performClick()
-
-        composeTestRule.onNodeWithText("Use the format shown when the dialog opens").assertIsDisplayed()
-    }
-
-    @Test
-    fun blankTimeShowsDefaultSupportingText() {
-        setDialog()
-
-        composeTestRule.onNodeWithText("Defaults to ${defaultTime.format(timeFormatter)}").assertIsDisplayed()
-    }
-
-    @Test
-    fun invalidNonBlankTimeShowsErrorOnSaveAttempt() {
-        setDialog()
-
-        composeTestRule.onNodeWithTag("titleField").performTextInput("Something")
-        composeTestRule.onNodeWithTag("timeField").performTextInput("25:99")
-        composeTestRule.onNodeWithText("Save").performClick()
-
-        composeTestRule.onNodeWithText("Leave blank or match the time format").assertIsDisplayed()
-    }
-
-    @Test
-    fun togglingToRecurringHidesDateTimeFieldsAndShowsCronFields() {
-        setDialog()
-
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
-
-        composeTestRule.onNodeWithTag("dateField").assertDoesNotExist()
-        composeTestRule.onNodeWithTag("timeField").assertDoesNotExist()
-        composeTestRule.onNodeWithText("Add schedule").assertIsDisplayed()
+        assert(savedReminder?.date == expected.toLocalDate())
+        assert(savedReminder?.time == expected.toLocalTime())
+        assert(savedSchedules == listOf(STABLE_FUTURE_CRON))
     }
 
     @Test
     fun addScheduleAppendsBlankCronRow() {
         setDialog()
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
 
         composeTestRule.onNodeWithText("Add schedule").performClick()
-        composeTestRule.onNodeWithText("Add schedule").performClick()
 
+        // One blank row is already present by default, plus the one just added.
         composeTestRule.onAllNodesWithContentDescription("Remove schedule").assertCountEquals(2)
     }
 
     @Test
     fun removeScheduleDeletesRow() {
         setDialog()
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
-        composeTestRule.onNodeWithText("Add schedule").performClick()
-        composeTestRule.onNodeWithText("Add schedule").performClick()
         composeTestRule.onNodeWithTag("cronField:0").performTextInput("0 9 * * *")
+        composeTestRule.onNodeWithText("Add schedule").performClick()
         composeTestRule.onNodeWithTag("cronField:1").performTextInput("0 18 * * *")
 
         composeTestRule.onNodeWithTag("removeCronButton:0").performClick()
@@ -187,8 +146,6 @@ class ReminderDialogTest {
     fun invalidCronShowsPerRowError() {
         setDialog()
         composeTestRule.onNodeWithTag("titleField").performTextInput("Something")
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
-        composeTestRule.onNodeWithText("Add schedule").performClick()
         composeTestRule.onNodeWithTag("cronField:0").performTextInput("not a cron")
 
         composeTestRule.onNodeWithText("Save").performClick()
@@ -200,7 +157,6 @@ class ReminderDialogTest {
     fun blankSchedulesOnSaveShowsAddAtLeastOneCronError() {
         setDialog()
         composeTestRule.onNodeWithTag("titleField").performTextInput("Something")
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
 
         composeTestRule.onNodeWithText("Save").performClick()
 
@@ -210,7 +166,6 @@ class ReminderDialogTest {
     @Test
     fun emptyScheduleListPreviewShowsEmDash() {
         setDialog()
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
 
         composeTestRule.onNodeWithText("Next occurrence: —").assertIsDisplayed()
     }
@@ -218,8 +173,6 @@ class ReminderDialogTest {
     @Test
     fun validCronShowsNextOccurrencePreview() {
         setDialog()
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
-        composeTestRule.onNodeWithText("Add schedule").performClick()
         composeTestRule.onNodeWithTag("cronField:0").performTextInput(STABLE_FUTURE_CRON)
 
         val expected = nextOccurrence(
@@ -230,6 +183,22 @@ class ReminderDialogTest {
             "Next occurrence: ${expected.toLocalDate().format(dateFormatter)} at ${expected.toLocalTime().format(timeFormatter)}"
 
         composeTestRule.onNodeWithText(expectedText).assertIsDisplayed()
+    }
+
+    @Test
+    fun pinnedYearCronThatAlreadyPassedCannotBeSaved() {
+        var saveCalled = false
+        setDialog(onSave = { _, _ -> saveCalled = true })
+        composeTestRule.onNodeWithTag("titleField").performTextInput("Something")
+        composeTestRule.onNodeWithTag("cronField:0").performTextInput("0 0 1 1 * 1970")
+
+        // A syntactically valid CRON with no remaining future match computes no next occurrence
+        // (nextOccurrence always searches forward from now), which blocks the save outright rather
+        // than creating a reminder in the past.
+        composeTestRule.onNodeWithText("Next occurrence: —").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        assert(!saveCalled) { "expected onSave not to be invoked for a schedule with no future occurrence" }
     }
 
     @Test
@@ -244,29 +213,6 @@ class ReminderDialogTest {
 
         composeTestRule.onNodeWithTag("cronField:0").assertTextContains("0 9 * * 1-5")
         composeTestRule.onNodeWithTag("cronField:1").assertTextContains("0 9 * * 6")
-    }
-
-    @Test
-    fun savingValidRecurringReminderInvokesOnSaveWithComputedDateTime() {
-        var savedReminder: Reminder? = null
-        var savedSchedules: List<String>? = null
-        setDialog(onSave = { reminder, schedules -> savedReminder = reminder; savedSchedules = schedules })
-
-        composeTestRule.onNodeWithTag("titleField").performTextInput("Pay rent")
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
-        composeTestRule.onNodeWithText("Add schedule").performClick()
-        composeTestRule.onNodeWithTag("cronField:0").performTextInput(STABLE_FUTURE_CRON)
-
-        val expected = nextOccurrence(
-            listOf(ReminderSchedule(reminderId = 0, cronExpression = STABLE_FUTURE_CRON)),
-            LocalDateTime.now()
-        )!!
-
-        composeTestRule.onNodeWithText("Save").performClick()
-
-        assert(savedReminder?.date == expected.toLocalDate())
-        assert(savedReminder?.time == expected.toLocalTime())
-        assert(savedSchedules == listOf(STABLE_FUTURE_CRON))
     }
 
     @Test

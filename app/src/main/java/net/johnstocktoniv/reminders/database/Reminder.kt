@@ -30,7 +30,15 @@ data class Reminder(
     val time: LocalTime? = null,
     val complete: Boolean = false
 ) {
-    fun effectiveTime(default: LocalTime): LocalTime = time ?: default
+    // date/time are always derived from a CRON schedule's computed next occurrence now (see
+    // ReminderDialog/CronSchedule.kt), so `time` is never actually null for a reminder saved
+    // through the app — this fallback only guards rows saved before that change and predating
+    // migration3To4's backfill.
+    fun effectiveTime(): LocalTime = time ?: FALLBACK_TIME
+
+    companion object {
+        private val FALLBACK_TIME: LocalTime = LocalTime.of(8, 0)
+    }
 }
 
 @Dao

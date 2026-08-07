@@ -20,13 +20,16 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 - **Reminders**
   - Create, edit, and delete reminders (title required; optional description)
-  - One-time reminders: specific date with an optional time
-    - Reminders without an explicit time use a configurable default time
-  - Recurring reminders: one or more CRON schedules per reminder (UNIX CRON syntax), with a live
-    "next occurrence" preview while editing
-  - Form validation with inline error messages (title, date, time, CRON expressions)
-  - Completing a recurring reminder automatically spawns the next occurrence (copying its schedules)
-    and re-arms its alarm
+  - Every reminder is driven by one or more CRON schedules — no separate date/time input. A plain
+    schedule (e.g. `0 9 * * 1-5`) repeats; appending a year (e.g. `30 9 25 12 * 2026`) pins it to a
+    single instant instead, which is how a one-off reminder is expressed. A live "next occurrence"
+    preview is shown while editing, computed by always searching forward from now — a schedule
+    with no remaining future match can't be saved, so a reminder can't be created in the past
+  - Form validation with inline error messages (title, CRON expressions)
+  - Completing a reminder automatically spawns its next occurrence (copying its schedules) and
+    re-arms its alarm, if its schedule(s) have one; a one-off (pinned-year) reminder has no next
+    occurrence once its year has passed, so nothing spawns — same as completing today's one-time
+    reminders used to behave
   - Un-completing a reminder re-arms its alarm
   - Overdue reminders are visually flagged in the list, and the flag refreshes automatically
     (checked every 30s) while the list stays on screen
@@ -57,10 +60,6 @@ A snapshot of what's implemented today and what's still open. Update this alongs
   - Alarms are rescheduled on app launch and after device reboot
   - Uses exact alarms when permitted, falling back to inexact scheduling otherwise
 
-- **Settings**
-  - Configurable default reminder time for reminders without an explicit time
-  - Changing the default time re-arms affected reminders immediately
-
 - **Branding**
   - Adaptive launcher icon (plus a monochrome variant for Android 13+ themed icons): a
     checklist glyph — one checked row over two pending rows — in the app's own Material 3 purple,
@@ -76,6 +75,8 @@ A snapshot of what's implemented today and what's still open. Update this alongs
   - Room database with versioned migrations
     - v1 → v2: repairs reminders whose `date` was stored in a legacy display format
     - v2 → v3: adds the `reminder_schedules` table for recurring reminders
+    - v3 → v4: backfills a pinned-year CRON schedule (from its own date/time) onto any reminder
+      predating the always-CRON model, so nothing loses its due date
   - Backup/restore: export all reminders (with their CRON schedules) to a YAML file via the system
     file picker, and restore from a previously exported file — a destructive action gated behind
     an "Are you sure?" confirmation, since it wipes and replaces the current database wholesale.
@@ -83,13 +84,13 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     cancelled/re-armed around the restore
 
 - **Testing**
-  - Unit tests for CRON schedule parsing and next-occurrence computation
-    (`CronScheduleTest`), and for the YAML backup round-trip and malformed-input handling
-    (`ReminderBackupTest`)
-  - Compose UI tests for the reminder, settings, and backup dialogs, the alarm screen, and the
-    main list screen (`ReminderDialogTest`, `SettingsDialogTest`, `BackupDialogTest`,
-    `AlarmScreenTest`, `RemindersScreenTest`). The main screen's UI lives in a dependency-free
-    `RemindersScreen` composable (mirroring the `AlarmActivity`/`AlarmScreen` split) so it can be
-    tested without a real device database or system permissions; `Main`'s own Activity wiring (DB,
-    `AlarmManager`, permission requests) is not covered by these tests
+  - Unit tests for CRON schedule parsing and next-occurrence computation, including the optional
+    year field (`CronScheduleTest`), and for the YAML backup round-trip and malformed-input
+    handling (`ReminderBackupTest`)
+  - Compose UI tests for the reminder and backup dialogs, the alarm screen, and the main list
+    screen (`ReminderDialogTest`, `BackupDialogTest`, `AlarmScreenTest`, `RemindersScreenTest`).
+    The main screen's UI lives in a dependency-free `RemindersScreen` composable (mirroring the
+    `AlarmActivity`/`AlarmScreen` split) so it can be tested without a real device database or
+    system permissions; `Main`'s own Activity wiring (DB, `AlarmManager`, permission requests) is
+    not covered by these tests
   - DAO test coverage for the backup restore path (`ReminderDaoTest`'s `restoreAll_*` tests)

@@ -15,7 +15,7 @@ object DatabaseProvider {
         )
             .setDriver(AndroidSQLiteDriver())        // required in Room 3
             .setQueryCoroutineContext(Dispatchers.IO)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, migration3To4(context.applicationContext))
             .build()
             .also { instance = it }
     }

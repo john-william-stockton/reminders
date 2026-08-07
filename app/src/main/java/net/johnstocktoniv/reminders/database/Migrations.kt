@@ -1,9 +1,11 @@
 package net.johnstocktoniv.reminders.database
 
+import android.content.Context
 import androidx.room3.migration.Migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 // Early builds stored `date` using this display format (e.g. "Tuesday, August 4, 2026") instead
@@ -47,4 +49,38 @@ val MIGRATION_2_3 = Migration(2, 3) { connection: SQLiteConnection ->
     connection.execSQL(
         "CREATE INDEX IF NOT EXISTS `index_reminder_schedules_reminderId` ON `reminder_schedules` (`reminderId`)"
     )
+}
+
+// Date/time input was removed in favor of always requiring a CRON schedule (one-off reminders
+// are now expressed as a schedule pinned to a single instant via the optional YEAR field — see
+// CronSchedule.kt), so every reminder needs at least one reminder_schedules row. This backfills
+// one for any reminder that predates that change: a "minute hour day month * year" schedule
+// computed from that row's own date/time columns, falling back to the (now-removed) default-
+// reminder-time setting's last saved value for a null time, read directly from its SharedPreferences
+// file rather than through SettingsRepository since that object no longer exists.
+fun migration3To4(context: Context) = Migration(3, 4) { connection: SQLiteConnection ->
+    val prefs = context.applicationContext.getSharedPreferences("reminders_settings", Context.MODE_PRIVATE)
+    val defaultMinutes = prefs.getInt("default_reminder_time_minutes", -1)
+    val defaultTime = if (defaultMinutes < 0) LocalTime.of(8, 0) else LocalTime.of(defaultMinutes / 60, defaultMinutes % 60)
+
+    val toBackfill = mutableListOf<Pair<Long, String>>()
+    connection.prepare(
+        "SELECT id, date, time FROM reminders WHERE id NOT IN (SELECT DISTINCT reminderId FROM reminder_schedules)"
+    ).use { statement ->
+        while (statement.step()) {
+            val id = statement.getLong(0)
+            val date = LocalDate.parse(statement.getText(1), storageDateFormatter)
+            val time = if (statement.isNull(2)) defaultTime else LocalTime.parse(statement.getText(2), storageTimeFormatter)
+            val cron = "${time.minute} ${time.hour} ${date.dayOfMonth} ${date.monthValue} * ${date.year}"
+            toBackfill += id to cron
+        }
+    }
+
+    for ((id, cron) in toBackfill) {
+        connection.prepare("INSERT INTO reminder_schedules (reminderId, cronExpression) VALUES (?, ?)").use { statement ->
+            statement.bindLong(1, id)
+            statement.bindText(2, cron)
+            statement.step()
+        }
+    }
 }

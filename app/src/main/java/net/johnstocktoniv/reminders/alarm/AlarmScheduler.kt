@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.first
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
-import net.johnstocktoniv.reminders.settings.SettingsRepository
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -55,7 +54,7 @@ object AlarmScheduler {
         cancel(context, current.reminder.id)
         if (current.schedules.isEmpty()) return
 
-        val effectiveTime = current.reminder.effectiveTime(SettingsRepository.getDefaultReminderTime(context))
+        val effectiveTime = current.reminder.effectiveTime()
         val after = maxOf(LocalDateTime.now(), current.reminder.date.atTime(effectiveTime))
         val next = nextOccurrence(current.schedules, after) ?: return
 
@@ -85,7 +84,7 @@ object AlarmScheduler {
         cancel(context, reminder.id)
 
         if (reminder.complete) return
-        val time = reminder.effectiveTime(SettingsRepository.getDefaultReminderTime(context))
+        val time = reminder.effectiveTime()
 
         val triggerMillis = reminder.date.atTime(time)
             .atZone(ZoneId.systemDefault())

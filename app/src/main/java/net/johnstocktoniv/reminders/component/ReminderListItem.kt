@@ -40,13 +40,11 @@ import net.johnstocktoniv.reminders.database.timeFormatter
 import net.johnstocktoniv.reminders.ui.theme.OnSuccessContainer
 import net.johnstocktoniv.reminders.ui.theme.SuccessContainer
 import java.time.LocalDateTime
-import java.time.LocalTime
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ReminderListItem(
     reminderWithSchedules: ReminderWithSchedules,
-    defaultReminderTime: LocalTime,
     onComplete: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier,
@@ -64,7 +62,7 @@ fun ReminderListItem(
         }
     }
     val isOverdue = !reminder.complete &&
-        reminder.date.atTime(reminder.effectiveTime(defaultReminderTime)).isBefore(now)
+        reminder.date.atTime(reminder.effectiveTime()).isBefore(now)
     val scope = rememberCoroutineScope()
     val swipeToDismissBoxState = rememberSwipeToDismissBoxState(
         positionalThreshold = { d -> 0.5f * d }

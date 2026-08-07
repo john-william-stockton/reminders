@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,7 +56,6 @@ import net.johnstocktoniv.reminders.R
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import java.time.LocalDate
-import java.time.LocalTime
 
 // Fixed peek height for each reminder behind the top of the collapsed completed-reminders stack
 // (Today tab). A static offset (rather than a percentage of each item's own measured height)
@@ -86,9 +84,7 @@ private enum class ReminderTab(val label: String, val icon: ImageVector) {
 @Composable
 fun RemindersScreen(
     reminders: List<ReminderWithSchedules>,
-    defaultReminderTime: LocalTime,
     onSaveReminder: suspend (Reminder, List<String>) -> Unit,
-    onSaveSettings: (LocalTime) -> Unit,
     onToggleComplete: (ReminderWithSchedules) -> Unit,
     onDeleteReminder: (ReminderWithSchedules) -> Unit,
     onClearAll: (List<ReminderWithSchedules>) -> Unit,
@@ -98,7 +94,6 @@ fun RemindersScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var reminderDialogTarget by remember { mutableStateOf<ReminderDialogTarget?>(null) }
-    var settingsDialogActive by remember { mutableStateOf(false) }
     var backupDialogActive by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(ReminderTab.TODAY) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
@@ -141,7 +136,6 @@ fun RemindersScreen(
 
     ReminderDialog(
         isOpen = reminderDialogTarget != null,
-        defaultReminderTime = defaultReminderTime,
         onCancel = { reminderDialogTarget = null },
         onSave = { reminder, cronExpressions ->
             // Awaits the write before closing: closing immediately let a fast reopen of the same
@@ -153,15 +147,6 @@ fun RemindersScreen(
             }
         },
         reminderWithSchedules = editingReminder
-    )
-    SettingsDialog(
-        isOpen = settingsDialogActive,
-        defaultReminderTime = defaultReminderTime,
-        onCancel = { settingsDialogActive = false },
-        onSave = { time ->
-            onSaveSettings(time)
-            settingsDialogActive = false
-        }
     )
     BackupDialog(
         isOpen = backupDialogActive,
@@ -184,9 +169,6 @@ fun RemindersScreen(
                 actions = {
                     IconButton(onClick = { backupDialogActive = true }) {
                         Icon(Icons.Filled.Backup, contentDescription = "Backup")
-                    }
-                    IconButton(onClick = { settingsDialogActive = true }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                 },
                 // Same light gray/lavender tone as a reminder card (see ReminderListItem) so the
@@ -253,7 +235,6 @@ fun RemindersScreen(
                     items(incompleteToday, key = { it.reminder.id }) { reminderWithSchedules ->
                         ReminderRow(
                             reminderWithSchedules,
-                            defaultReminderTime = defaultReminderTime,
                             onComplete = { onToggleComplete(reminderWithSchedules) },
                             onDelete = { onDeleteReminder(reminderWithSchedules) },
                             onLongPress = { reminderDialogTarget = ReminderDialogTarget.Edit(reminderWithSchedules) }
@@ -264,7 +245,6 @@ fun RemindersScreen(
                             CompletedReminderStack(
                                 reminders = completedToday,
                                 collapsed = completedCollapsed,
-                                defaultReminderTime = defaultReminderTime,
                                 onComplete = onToggleComplete,
                                 onDelete = onDeleteReminder,
                                 onEdit = { reminderDialogTarget = ReminderDialogTarget.Edit(it) },
@@ -276,7 +256,6 @@ fun RemindersScreen(
                     items(visibleReminders, key = { it.reminder.id }) { reminderWithSchedules ->
                         ReminderRow(
                             reminderWithSchedules,
-                            defaultReminderTime = defaultReminderTime,
                             onComplete = { onToggleComplete(reminderWithSchedules) },
                             onDelete = { onDeleteReminder(reminderWithSchedules) },
                             onLongPress = { reminderDialogTarget = ReminderDialogTarget.Edit(reminderWithSchedules) }
@@ -291,7 +270,6 @@ fun RemindersScreen(
 @Composable
 private fun ReminderRow(
     reminderWithSchedules: ReminderWithSchedules,
-    defaultReminderTime: LocalTime,
     onComplete: () -> Unit,
     onDelete: () -> Unit,
     onLongPress: () -> Unit,
@@ -309,7 +287,6 @@ private fun ReminderRow(
     val currentOnTap by rememberUpdatedState(onTap)
     ReminderListItem(
         reminderWithSchedules,
-        defaultReminderTime = defaultReminderTime,
         onComplete = onComplete,
         onDelete = onDelete,
         showDescription = showDescription,
@@ -332,7 +309,6 @@ private fun ReminderRow(
 private fun CompletedReminderStack(
     reminders: List<ReminderWithSchedules>,
     collapsed: Boolean,
-    defaultReminderTime: LocalTime,
     onComplete: (ReminderWithSchedules) -> Unit,
     onDelete: (ReminderWithSchedules) -> Unit,
     onEdit: (ReminderWithSchedules) -> Unit,
@@ -343,7 +319,6 @@ private fun CompletedReminderStack(
             reminders.forEach { reminderWithSchedules ->
                 ReminderRow(
                     reminderWithSchedules,
-                    defaultReminderTime = defaultReminderTime,
                     onComplete = { onComplete(reminderWithSchedules) },
                     onDelete = { onDelete(reminderWithSchedules) },
                     onLongPress = { onEdit(reminderWithSchedules) },
@@ -359,7 +334,6 @@ private fun CompletedReminderStack(
             reminders.forEachIndexed { index, reminderWithSchedules ->
                 ReminderRow(
                     reminderWithSchedules,
-                    defaultReminderTime = defaultReminderTime,
                     onComplete = { onComplete(reminderWithSchedules) },
                     onDelete = { onDelete(reminderWithSchedules) },
                     onLongPress = { onEdit(reminderWithSchedules) },

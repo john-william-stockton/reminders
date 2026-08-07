@@ -12,11 +12,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
+import net.johnstocktoniv.reminders.STABLE_FUTURE_CRON
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.testReminder
@@ -25,7 +25,6 @@ import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
-import java.time.LocalTime
 
 class RemindersScreenTest {
     @get:Rule
@@ -33,9 +32,7 @@ class RemindersScreenTest {
 
     private fun setScreen(
         reminders: List<ReminderWithSchedules> = emptyList(),
-        defaultReminderTime: LocalTime = LocalTime.of(8, 0),
         onSaveReminder: suspend (Reminder, List<String>) -> Unit = { _, _ -> },
-        onSaveSettings: (LocalTime) -> Unit = {},
         onToggleComplete: (ReminderWithSchedules) -> Unit = {},
         onDeleteReminder: (ReminderWithSchedules) -> Unit = {},
         onClearAll: (List<ReminderWithSchedules>) -> Unit = {},
@@ -46,9 +43,7 @@ class RemindersScreenTest {
             RemindersTheme {
                 RemindersScreen(
                     reminders = reminders,
-                    defaultReminderTime = defaultReminderTime,
                     onSaveReminder = onSaveReminder,
-                    onSaveSettings = onSaveSettings,
                     onToggleComplete = onToggleComplete,
                     onDeleteReminder = onDeleteReminder,
                     onClearAll = onClearAll,
@@ -302,6 +297,7 @@ class RemindersScreenTest {
 
         composeTestRule.onNodeWithContentDescription("Add Item").performClick()
         composeTestRule.onNodeWithTag("titleField").performTextInput("New Task")
+        composeTestRule.onNodeWithTag("cronField:0").performTextInput(STABLE_FUTURE_CRON)
         composeTestRule.onNodeWithText("Save").performClick()
 
         assert(savedReminder?.title == "New Task") { "was ${savedReminder?.title}" }
@@ -320,12 +316,10 @@ class RemindersScreenTest {
             RemindersTheme {
                 RemindersScreen(
                     reminders = reminders,
-                    defaultReminderTime = LocalTime.of(8, 0),
                     onSaveReminder = { reminder, cronExpressions ->
                         // Stands in for the real save: DAO write + Flow re-emission.
                         reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = cronExpressions))
                     },
-                    onSaveSettings = {},
                     onToggleComplete = {},
                     onDeleteReminder = {},
                     onClearAll = {}
@@ -334,8 +328,6 @@ class RemindersScreenTest {
         }
 
         composeTestRule.onNodeWithTag("reminderItem:1").performTouchInput { longClick() }
-        composeTestRule.onNodeWithText("Recurring (CRON)").performClick()
-        composeTestRule.onNodeWithText("Add schedule").performClick()
         composeTestRule.onNodeWithTag("cronField:0").performTextInput("0 9 * * *")
         composeTestRule.onNodeWithText("Save").performClick()
 
@@ -385,30 +377,6 @@ class RemindersScreenTest {
         composeTestRule.waitForIdle()
 
         assert(deleted?.reminder?.id == 9L) { "was $deleted" }
-    }
-
-    @Test
-    fun tappingSettingsIconOpensSettingsDialogWithDefaultTimePrefilled() {
-        setScreen(reminders = emptyList(), defaultReminderTime = LocalTime.of(7, 45))
-
-        composeTestRule.onNodeWithContentDescription("Settings").performClick()
-
-        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("defaultTimeField").assertTextContains("07:45")
-    }
-
-    @Test
-    fun savingSettingsInvokesOnSaveSettingsAndClosesDialog() {
-        var savedTime: LocalTime? = null
-        setScreen(reminders = emptyList(), defaultReminderTime = LocalTime.of(8, 0), onSaveSettings = { savedTime = it })
-
-        composeTestRule.onNodeWithContentDescription("Settings").performClick()
-        composeTestRule.onNodeWithTag("defaultTimeField").performTextClearance()
-        composeTestRule.onNodeWithTag("defaultTimeField").performTextInput("10:00")
-        composeTestRule.onNodeWithText("Save").performClick()
-
-        assert(savedTime == LocalTime.of(10, 0)) { "was $savedTime" }
-        composeTestRule.onNodeWithTag("defaultTimeField").assertDoesNotExist()
     }
 
     @Test

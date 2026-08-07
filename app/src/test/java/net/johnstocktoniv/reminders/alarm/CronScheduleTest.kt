@@ -53,4 +53,24 @@ class CronScheduleTest {
         assertNull(parseCronOrNull("not a cron"))
         assertNotNull(parseCronOrNull("0 9 * * *"))
     }
+
+    @Test
+    fun pinnedYearMatchesOnlyThatYear() {
+        val after = LocalDateTime.of(2026, 1, 1, 0, 0)
+        val next = nextOccurrence(listOf(schedule("30 9 25 12 * 2026")), after)
+        assertEquals(LocalDateTime.of(2026, 12, 25, 9, 30), next)
+    }
+
+    @Test
+    fun pinnedYearAlreadyPassedHasNoNextOccurrence() {
+        val after = LocalDateTime.of(2026, 1, 1, 0, 0)
+        val next = nextOccurrence(listOf(schedule("30 9 25 12 * 2025")), after)
+        assertNull(next)
+    }
+
+    @Test
+    fun yearFieldIsOptionalAndDefaultsToMatchingEveryYear() {
+        assertNotNull(parseCronOrNull("0 9 * * *"))
+        assertNotNull(parseCronOrNull("0 9 * * * 2026"))
+    }
 }
