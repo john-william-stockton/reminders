@@ -4,8 +4,7 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 ## Not yet implemented
 
-- No instrumented test launches the real `Main` Activity end-to-end (real Room DB, `AlarmManager`,
-  permission-request navigation) — only its extracted `RemindersScreen` composable is covered
+(none currently)
 
 ## Implemented
 
@@ -90,6 +89,15 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     screen (`ReminderDialogTest`, `BackupDialogTest`, `AlarmScreenTest`, `RemindersScreenTest`).
     The main screen's UI lives in a dependency-free `RemindersScreen` composable (mirroring the
     `AlarmActivity`/`AlarmScreen` split) so it can be tested without a real device database or
-    system permissions; `Main`'s own Activity wiring (DB, `AlarmManager`, permission requests) is
-    not covered by these tests
+    system permissions
+  - `MainActivityTest` launches the real `Main` Activity end-to-end (real Compose wiring, real
+    `AlarmScheduler` calls, permission-request navigation pre-granted via shell so it never fires)
+    — `DatabaseProvider.overrideForTesting()` swaps in an in-memory database first, so it never
+    touches the real on-disk `reminders.db` and is safe to run against a device with real saved
+    data. All Compose UI test files use the `androidx.compose.ui.test.junit4.v2` rule factories
+    (`StandardTestDispatcher`-based) rather than the deprecated v1 ones — the v1 ones'
+    `UnconfinedTestDispatcher` handoff between `Dispatchers.Main` overrides didn't always restore
+    cleanly across ~70 sequential tests in one instrumentation process, intermittently stalling
+    `MainActivityTest`'s real coroutine work when it ran late in a full suite (never reproduced in
+    isolation)
   - DAO test coverage for the backup restore path (`ReminderDaoTest`'s `restoreAll_*` tests)
