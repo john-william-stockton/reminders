@@ -4,15 +4,6 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 ## Not yet implemented
 
-- No editing of individual occurrences of a recurring reminder (edits apply to the current row
-  only; future spawned occurrences reuse the original title/description/schedules)
-- No categories, tags, priorities, or search/filter beyond the three tabs
-- No custom snooze duration (fixed at 2 minutes)
-- No notification sound/vibration customization per reminder
-- No sync across devices
-- No widgets or wearable support
-- No localization (English only; date/time formats are hardcoded, not locale-aware)
-- No dark/light theme toggle beyond system default
 - No instrumented test launches the real `Main` Activity end-to-end (real Room DB, `AlarmManager`,
   permission-request navigation) — only its extracted `RemindersScreen` composable is covered
 
@@ -33,6 +24,12 @@ A snapshot of what's implemented today and what's still open. Update this alongs
   - Un-completing a reminder re-arms its alarm
   - Overdue reminders are visually flagged in the list, and the flag refreshes automatically
     (checked every 30s) while the list stays on screen
+  - Editing a reminder that's genuinely part of a series (its schedule would still fire again
+    after its own occurrence, and it's not already complete) prompts to apply the change to just
+    this occurrence or the whole series. "Whole series" is an ordinary save. "This occurrence
+    only" spawns the next occurrence from the pre-edit schedule (exactly as completing it would),
+    then detaches the current row into a standalone one-off pinned to its own already-fixed date/
+    time, carrying the user's title/description edits — the series continues untouched
 
 - **List & navigation**
   - Three tabs: **Today**, **Incomplete**, **Complete**
@@ -86,7 +83,9 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 - **Testing**
   - Unit tests for CRON schedule parsing and next-occurrence computation, including the optional
     year field (`CronScheduleTest`), and for the YAML backup round-trip and malformed-input
-    handling (`ReminderBackupTest`)
+    handling (`ReminderBackupTest`). `AlarmScheduler`'s spawn/detach logic (`completeAndAdvance`,
+    `editOccurrence`) isn't unit-tested directly since it needs a real `Context`/`AlarmManager` —
+    exercised indirectly through the Compose UI tests below instead
   - Compose UI tests for the reminder and backup dialogs, the alarm screen, and the main list
     screen (`ReminderDialogTest`, `BackupDialogTest`, `AlarmScreenTest`, `RemindersScreenTest`).
     The main screen's UI lives in a dependency-free `RemindersScreen` composable (mirroring the

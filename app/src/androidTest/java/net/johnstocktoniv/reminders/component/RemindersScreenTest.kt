@@ -25,6 +25,7 @@ import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalTime
 
 class RemindersScreenTest {
     @get:Rule
@@ -33,6 +34,7 @@ class RemindersScreenTest {
     private fun setScreen(
         reminders: List<ReminderWithSchedules> = emptyList(),
         onSaveReminder: suspend (Reminder, List<String>) -> Unit = { _, _ -> },
+        onEditOccurrence: suspend (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
         onToggleComplete: (ReminderWithSchedules) -> Unit = {},
         onDeleteReminder: (ReminderWithSchedules) -> Unit = {},
         onClearAll: (List<ReminderWithSchedules>) -> Unit = {},
@@ -44,6 +46,7 @@ class RemindersScreenTest {
                 RemindersScreen(
                     reminders = reminders,
                     onSaveReminder = onSaveReminder,
+                    onEditOccurrence = onEditOccurrence,
                     onToggleComplete = onToggleComplete,
                     onDeleteReminder = onDeleteReminder,
                     onClearAll = onClearAll,
@@ -349,6 +352,47 @@ class RemindersScreenTest {
 
         composeTestRule.onNodeWithText("Edit Reminder").assertIsDisplayed()
         composeTestRule.onNodeWithTag("titleField").assertTextContains("Existing Task")
+    }
+
+    @Test
+    fun genuinelyRecurringReminderShowsRepeatIcon() {
+        val reminder = testReminder(id = 21, title = "Standup", date = LocalDate.now())
+        setScreen(reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = listOf("0 9 * * *"))))
+
+        composeTestRule.onNodeWithContentDescription("Recurring").assertIsDisplayed()
+    }
+
+    @Test
+    fun pinnedOneOffReminderHidesRepeatIcon() {
+        val date = LocalDate.of(2026, 12, 25)
+        val time = LocalTime.of(9, 30)
+        val reminder = testReminder(id = 22, title = "Christmas", date = date, time = time)
+        setScreen(
+            reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = listOf("30 9 25 12 * 2026")))
+        )
+
+        composeTestRule.onNodeWithContentDescription("Recurring").assertDoesNotExist()
+    }
+
+    @Test
+    fun choosingThisOccurrenceOnlyInvokesOnEditOccurrenceAndClosesDialog() {
+        var originalPassed: ReminderWithSchedules? = null
+        var editedPassed: Reminder? = null
+        val reminder = testReminder(id = 11, title = "Standup", date = LocalDate.now())
+        val original = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * *"))
+        setScreen(
+            reminders = listOf(original),
+            onEditOccurrence = { orig, edited -> originalPassed = orig; editedPassed = edited }
+        )
+
+        composeTestRule.onNodeWithTag("reminderItem:11").performTouchInput { longClick() }
+        composeTestRule.onNodeWithText("Save").performClick()
+        composeTestRule.onNodeWithTag("thisOccurrenceOnlyButton").performClick()
+
+        assert(originalPassed == original) { "expected the pre-edit reminder, was $originalPassed" }
+        assert(editedPassed?.id == 11L) { "was ${editedPassed?.id}" }
+        composeTestRule.onNodeWithText("Edit Reminder").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Apply changes to?").assertDoesNotExist()
     }
 
     @Test

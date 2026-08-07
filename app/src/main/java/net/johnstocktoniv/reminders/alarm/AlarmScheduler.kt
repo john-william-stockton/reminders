@@ -52,7 +52,28 @@ object AlarmScheduler {
         val dao = DatabaseProvider.dao(context)
         dao.upsert(current.reminder.copy(complete = true))
         cancel(context, current.reminder.id)
+        spawnNextOccurrence(context, current)
+    }
+
+    // Detaches a single occurrence from its series: the series continues from the *original*
+    // (pre-edit) schedule exactly as if this occurrence had been completed normally, while the
+    // occurrence itself keeps the user's title/description edits but is stripped down to a
+    // one-off schedule pinned to its own already-fixed date/time — editing an instance shouldn't
+    // retroactively change the recurring pattern going forward. Contrast with a "whole series"
+    // edit, which is just an ordinary save (Main.kt's onSaveReminder): future spawns already read
+    // the live row at completion time, so that path needs no special handling here.
+    suspend fun editOccurrence(context: Context, original: ReminderWithSchedules, edited: Reminder) {
+        spawnNextOccurrence(context, original)
+        val dao = DatabaseProvider.dao(context)
+        val time = edited.effectiveTime()
+        val pinnedCron = "${time.minute} ${time.hour} ${edited.date.dayOfMonth} ${edited.date.monthValue} * ${edited.date.year}"
+        dao.saveWithSchedules(edited, listOf(pinnedCron))
+        schedule(context, edited)
+    }
+
+    private suspend fun spawnNextOccurrence(context: Context, current: ReminderWithSchedules) {
         if (current.schedules.isEmpty()) return
+        val dao = DatabaseProvider.dao(context)
 
         val effectiveTime = current.reminder.effectiveTime()
         val after = maxOf(LocalDateTime.now(), current.reminder.date.atTime(effectiveTime))

@@ -37,3 +37,9 @@ fun nextOccurrence(schedules: List<ReminderSchedule>, after: LocalDateTime): Loc
         .minOrNull()
         ?.toLocalDateTime()
 }
+
+// True if this schedule set still has a match after its own most recent occurrence — i.e. it's
+// genuinely recurring, as opposed to a one-off pinned to a single instant (which has schedules
+// too, just none of them producing a match beyond that one instant).
+fun isRecurring(schedules: List<ReminderSchedule>, ownOccurrence: LocalDateTime): Boolean =
+    nextOccurrence(schedules, ownOccurrence) != null

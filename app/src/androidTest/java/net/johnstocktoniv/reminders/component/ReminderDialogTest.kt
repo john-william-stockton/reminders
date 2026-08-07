@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import net.johnstocktoniv.reminders.STABLE_FUTURE_CRON
 import net.johnstocktoniv.reminders.alarm.nextOccurrence
@@ -34,6 +35,7 @@ class ReminderDialogTest {
         reminderWithSchedules: ReminderWithSchedules? = null,
         onCancel: () -> Unit = {},
         onSave: (Reminder, List<String>) -> Unit = { _, _ -> },
+        onEditOccurrence: (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
     ) {
         composeTestRule.setContent {
             RemindersTheme {
@@ -41,7 +43,8 @@ class ReminderDialogTest {
                     isOpen = isOpen,
                     onCancel = onCancel,
                     onSave = onSave,
-                    reminderWithSchedules = reminderWithSchedules
+                    reminderWithSchedules = reminderWithSchedules,
+                    onEditOccurrence = onEditOccurrence
                 )
             }
         }
@@ -225,5 +228,120 @@ class ReminderDialogTest {
 
         assert(cancelCalled) { "expected onCancel to be invoked" }
         assert(!saveCalled) { "expected onSave not to be invoked" }
+    }
+
+    @Test
+    fun editingRecurringReminderShowsSeriesChoiceInsteadOfSavingDirectly() {
+        var saveCalled = false
+        val reminder = testReminder(title = "Standup", date = LocalDate.now(), time = LocalTime.of(9, 0))
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * *")),
+            onSave = { _, _ -> saveCalled = true }
+        )
+
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        composeTestRule.onNodeWithText("Apply changes to?").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("wholeSeriesButton").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("thisOccurrenceOnlyButton").assertIsDisplayed()
+        assert(!saveCalled) { "expected onSave not to be invoked before a choice is made" }
+    }
+
+    @Test
+    fun choosingWholeSeriesInvokesOnSave() {
+        var savedReminder: Reminder? = null
+        var editOccurrenceCalled = false
+        val reminder = testReminder(title = "Standup", date = LocalDate.now(), time = LocalTime.of(9, 0))
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * *")),
+            onSave = { edited, _ -> savedReminder = edited },
+            onEditOccurrence = { _, _ -> editOccurrenceCalled = true }
+        )
+        composeTestRule.onNodeWithTag("titleField").performTextClearance()
+        composeTestRule.onNodeWithTag("titleField").performTextInput("Renamed")
+
+        composeTestRule.onNodeWithText("Save").performClick()
+        composeTestRule.onNodeWithTag("wholeSeriesButton").performClick()
+
+        assert(savedReminder?.title == "Renamed") { "was ${savedReminder?.title}" }
+        assert(!editOccurrenceCalled) { "expected onEditOccurrence not to be invoked" }
+        composeTestRule.onNodeWithText("Apply changes to?").assertDoesNotExist()
+    }
+
+    @Test
+    fun choosingThisOccurrenceOnlyInvokesOnEditOccurrenceWithOriginalAndEditedReminder() {
+        var originalPassed: ReminderWithSchedules? = null
+        var editedPassed: Reminder? = null
+        var saveCalled = false
+        val reminder = testReminder(id = 3, title = "Standup", date = LocalDate.now(), time = LocalTime.of(9, 0))
+        val original = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * *"))
+        setDialog(
+            reminderWithSchedules = original,
+            onSave = { _, _ -> saveCalled = true },
+            onEditOccurrence = { orig, edited -> originalPassed = orig; editedPassed = edited }
+        )
+        composeTestRule.onNodeWithTag("titleField").performTextClearance()
+        composeTestRule.onNodeWithTag("titleField").performTextInput("Renamed")
+
+        composeTestRule.onNodeWithText("Save").performClick()
+        composeTestRule.onNodeWithTag("thisOccurrenceOnlyButton").performClick()
+
+        assert(originalPassed == original) { "expected the pre-edit reminder, was $originalPassed" }
+        assert(editedPassed?.id == 3L) { "was ${editedPassed?.id}" }
+        assert(editedPassed?.title == "Renamed") { "was ${editedPassed?.title}" }
+        assert(!saveCalled) { "expected onSave not to be invoked" }
+        composeTestRule.onNodeWithText("Apply changes to?").assertDoesNotExist()
+    }
+
+    @Test
+    fun cancelingSeriesChoiceReturnsToEditingWithoutSavingEitherWay() {
+        var saveCalled = false
+        var editOccurrenceCalled = false
+        val reminder = testReminder(title = "Standup", date = LocalDate.now(), time = LocalTime.of(9, 0))
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * *")),
+            onSave = { _, _ -> saveCalled = true },
+            onEditOccurrence = { _, _ -> editOccurrenceCalled = true }
+        )
+
+        composeTestRule.onNodeWithText("Save").performClick()
+        composeTestRule.onNodeWithText("Cancel").performClick()
+
+        composeTestRule.onNodeWithText("Apply changes to?").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Edit Reminder").assertIsDisplayed()
+        assert(!saveCalled) { "expected onSave not to be invoked" }
+        assert(!editOccurrenceCalled) { "expected onEditOccurrence not to be invoked" }
+    }
+
+    @Test
+    fun editingAlreadyCompleteReminderSkipsSeriesChoiceEvenIfRecurring() {
+        var saveCalled = false
+        val reminder = testReminder(title = "Done", date = LocalDate.now(), time = LocalTime.of(9, 0), complete = true)
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * *")),
+            onSave = { _, _ -> saveCalled = true }
+        )
+
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        composeTestRule.onNodeWithText("Apply changes to?").assertDoesNotExist()
+        assert(saveCalled) { "expected onSave to be invoked directly" }
+    }
+
+    @Test
+    fun editingPinnedOneOffWithNoFutureOccurrenceSkipsSeriesChoice() {
+        var saveCalled = false
+        val ownDate = LocalDate.of(2026, 12, 25)
+        val ownTime = LocalTime.of(9, 30)
+        val reminder = testReminder(title = "One-off", date = ownDate, time = ownTime)
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("30 9 25 12 * 2026")),
+            onSave = { _, _ -> saveCalled = true }
+        )
+
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        composeTestRule.onNodeWithText("Apply changes to?").assertDoesNotExist()
+        assert(saveCalled) { "expected onSave to be invoked directly" }
     }
 }

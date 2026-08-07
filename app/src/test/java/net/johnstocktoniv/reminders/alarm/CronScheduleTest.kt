@@ -2,8 +2,10 @@ package net.johnstocktoniv.reminders.alarm
 
 import net.johnstocktoniv.reminders.database.ReminderSchedule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
 
@@ -72,5 +74,17 @@ class CronScheduleTest {
     fun yearFieldIsOptionalAndDefaultsToMatchingEveryYear() {
         assertNotNull(parseCronOrNull("0 9 * * *"))
         assertNotNull(parseCronOrNull("0 9 * * * 2026"))
+    }
+
+    @Test
+    fun plainRepeatingScheduleIsRecurring() {
+        val own = LocalDateTime.of(2026, 8, 4, 9, 0)
+        assertTrue(isRecurring(listOf(schedule("0 9 * * *")), own))
+    }
+
+    @Test
+    fun pinnedYearScheduleIsNotRecurringAfterItsOwnInstant() {
+        val own = LocalDateTime.of(2026, 12, 25, 9, 30)
+        assertFalse(isRecurring(listOf(schedule("30 9 25 12 * 2026")), own))
     }
 }

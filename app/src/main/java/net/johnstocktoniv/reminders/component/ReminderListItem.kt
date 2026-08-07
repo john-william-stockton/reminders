@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import net.johnstocktoniv.reminders.alarm.isRecurring
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.database.dateFormatter
 import net.johnstocktoniv.reminders.database.timeFormatter
@@ -63,6 +64,10 @@ fun ReminderListItem(
     }
     val isOverdue = !reminder.complete &&
         reminder.date.atTime(reminder.effectiveTime()).isBefore(now)
+    // A one-off (pinned-year) reminder has schedules too — just none producing a match beyond
+    // its own instant — so this checks for an actual future occurrence rather than merely
+    // "has any schedule" to avoid showing a repeat icon on something that will only ever fire once.
+    val showsRecurringIcon = isRecurring(reminderWithSchedules.schedules, reminder.date.atTime(reminder.effectiveTime()))
     val scope = rememberCoroutineScope()
     val swipeToDismissBoxState = rememberSwipeToDismissBoxState(
         positionalThreshold = { d -> 0.5f * d }
@@ -147,7 +152,7 @@ fun ReminderListItem(
                     color = dateTimeColor,
                     maxLines = 1
                 )
-                if (reminderWithSchedules.schedules.isNotEmpty()) {
+                if (showsRecurringIcon) {
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = "Recurring",

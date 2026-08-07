@@ -85,6 +85,7 @@ private enum class ReminderTab(val label: String, val icon: ImageVector) {
 fun RemindersScreen(
     reminders: List<ReminderWithSchedules>,
     onSaveReminder: suspend (Reminder, List<String>) -> Unit,
+    onEditOccurrence: suspend (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
     onToggleComplete: (ReminderWithSchedules) -> Unit,
     onDeleteReminder: (ReminderWithSchedules) -> Unit,
     onClearAll: (List<ReminderWithSchedules>) -> Unit,
@@ -146,7 +147,13 @@ fun RemindersScreen(
                 reminderDialogTarget = null
             }
         },
-        reminderWithSchedules = editingReminder
+        reminderWithSchedules = editingReminder,
+        onEditOccurrence = { original, edited ->
+            coroutineScope.launch {
+                onEditOccurrence(original, edited)
+                reminderDialogTarget = null
+            }
+        }
     )
     BackupDialog(
         isOpen = backupDialogActive,

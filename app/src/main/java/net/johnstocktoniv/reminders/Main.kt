@@ -100,6 +100,18 @@ class Main : ComponentActivity() {
                             list.find { it.reminder.id == saved.id }?.schedules?.map { it.cronExpression } == cronExpressions
                         }
                     },
+                    onEditOccurrence = { original, edited ->
+                        AlarmScheduler.editOccurrence(applicationContext, original, edited)
+                        // Same reasoning as onSaveReminder above: wait for the reactive `reminders`
+                        // state to actually reflect the edit before returning, not just the write.
+                        snapshotFlow { reminders }.first { list ->
+                            list.any {
+                                it.reminder.id == edited.id &&
+                                    it.reminder.title == edited.title &&
+                                    it.reminder.description == edited.description
+                            }
+                        }
+                    },
                     onToggleComplete = { reminderWithSchedules ->
                         val reminder = reminderWithSchedules.reminder
                         if (!reminder.complete) {

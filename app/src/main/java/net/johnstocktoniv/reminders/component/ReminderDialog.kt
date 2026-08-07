@@ -3,7 +3,9 @@ package net.johnstocktoniv.reminders.component
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -25,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import net.johnstocktoniv.reminders.alarm.isRecurring
 import net.johnstocktoniv.reminders.alarm.nextOccurrence
 import net.johnstocktoniv.reminders.alarm.parseCronOrNull
 import net.johnstocktoniv.reminders.database.Reminder
@@ -40,6 +43,7 @@ fun ReminderDialog(
     onCancel: () -> Unit,
     onSave: (Reminder, List<String>) -> Unit,
     reminderWithSchedules: ReminderWithSchedules? = null,
+    onEditOccurrence: (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
 ) {
     if (!isOpen) return
 
@@ -51,6 +55,7 @@ fun ReminderDialog(
     var descriptionInput by remember(reminder) {
         mutableStateOf(reminder?.description.orEmpty())
     }
+    var showSeriesChoice by remember(reminder) { mutableStateOf(false) }
     // Seeds one blank row for a brand-new reminder so there's always a visible field to type
     // into, rather than an empty list the user has to know to press "Add schedule" to populate.
     val scheduleInputs = remember(reminderWithSchedules) {
@@ -75,6 +80,71 @@ fun ReminderDialog(
 
     val titleValid = titleInput.isNotBlank()
     val schedulesValid = scheduleValid.all { it } && nonBlankSchedules.isNotEmpty() && computedNext != null
+
+    // Only an *existing, still-incomplete* reminder whose own schedule would fire again after its
+    // own occurrence is genuinely part of a series — a brand-new reminder, a completed one, or a
+    // one-off pinned to a single instant has no "series" to distinguish an edit from, so editing
+    // those just saves normally with no prompt.
+    val hasFutureAfterOwn = reminderWithSchedules != null && !reminderWithSchedules.reminder.complete &&
+        isRecurring(
+            reminderWithSchedules.schedules,
+            reminderWithSchedules.reminder.date.atTime(reminderWithSchedules.reminder.effectiveTime())
+        )
+
+    if (showSeriesChoice) {
+        AlertDialog(
+            onDismissRequest = { showSeriesChoice = false },
+            title = { Text("Apply changes to?") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "This reminder repeats. Choose whether these changes apply to just this " +
+                            "occurrence or the whole series going forward."
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            showSeriesChoice = false
+                            onSave(
+                                reminderWithSchedules!!.reminder.copy(
+                                    title = titleInput.trim(),
+                                    description = descriptionInput.trim(),
+                                    date = computedNext!!.toLocalDate(),
+                                    time = computedNext.toLocalTime()
+                                ),
+                                nonBlankSchedules
+                            )
+                        },
+                        modifier = Modifier.testTag("wholeSeriesButton")
+                    ) {
+                        Text("Whole Series")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            showSeriesChoice = false
+                            onEditOccurrence(
+                                reminderWithSchedules!!,
+                                reminderWithSchedules.reminder.copy(
+                                    title = titleInput.trim(),
+                                    description = descriptionInput.trim()
+                                )
+                            )
+                        },
+                        modifier = Modifier.testTag("thisOccurrenceOnlyButton")
+                    ) {
+                        Text("This Occurrence Only")
+                    }
+                }
+            },
+            confirmButton = {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    OutlinedButton(onClick = { showSeriesChoice = false }) { Text("Cancel") }
+                }
+            }
+        )
+        return
+    }
 
     AlertDialog(
         onDismissRequest = onCancel,
@@ -140,6 +210,10 @@ fun ReminderDialog(
             Button(onClick = {
                 if (!titleValid || !schedulesValid) {
                     showErrors = true
+                    return@Button
+                }
+                if (hasFutureAfterOwn) {
+                    showSeriesChoice = true
                     return@Button
                 }
                 onSave(
