@@ -4,10 +4,18 @@ Known defects in the current codebase. Update this alongside bug fixes and new d
 
 ## Open
 
-(none currently)
-
 ## Resolved
 
+- **The positional threshold for a `ReminderListItem`'s `SwipeToDismissBox`/`SwipeToDismissBoxState`
+  wasn't being respected — items changed colors immediately after any amount of lateral movement.**
+  The colored background/icon was keyed off `SwipeToDismissBoxState.dismissDirection`, which flips
+  the instant the drag offset leaves zero, ignoring `positionalThreshold` entirely. Swapping to
+  `targetValue` (the anchor closest to the current offset) fixed the "immediately" part, but
+  `targetValue` only respects the anchors' own 50/50 geometric midpoint — `positionalThreshold` is
+  consulted solely by the release/fling decision, not by the live-drag target — so it couldn't be
+  tuned away from 50%. Fixed by tracking the item's measured width and raw drag offset directly and
+  gating the background reveal on a configurable `dismissThreshold` (now 25%) compared against that
+  fraction, independent of the library's anchor-selection logic.
 - **A second alarm arriving while one was already showing could be lost.** `AlarmReceiver` launches
   `AlarmActivity` with `FLAG_ACTIVITY_SINGLE_TOP | FLAG_ACTIVITY_CLEAR_TOP`, so if the activity is
   already on screen, Android reuses that instance and delivers the new alarm via `onNewIntent()`

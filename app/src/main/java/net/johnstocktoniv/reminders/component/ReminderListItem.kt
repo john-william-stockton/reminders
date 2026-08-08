@@ -21,17 +21,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.alarm.isRecurring
@@ -69,16 +74,23 @@ fun ReminderListItem(
     // "has any schedule" to avoid showing a repeat icon on something that will only ever fire once.
     val showsRecurringIcon = isRecurring(reminderWithSchedules.schedules, reminder.date.atTime(reminder.effectiveTime()))
     val scope = rememberCoroutineScope()
+    val dismissThreshold = 0.25f
     val swipeToDismissBoxState = rememberSwipeToDismissBoxState(
-        positionalThreshold = { d -> 0.5f * d }
+        positionalThreshold = { d -> dismissThreshold * d }
     )
+    // SwipeToDismissBoxState.targetValue picks the geometrically closest anchor, which flips at
+    // a fixed 50% of the item's width regardless of positionalThreshold (that value only feeds
+    // the release/fling decision, not the live-drag target) — so the background's own reveal has
+    // to track raw offset against this item's measured width to honor a threshold other than 50%.
+    var itemWidthPx by remember { mutableIntStateOf(0) }
 
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
         modifier = modifier.fillMaxWidth()
                            .padding(horizontal = 9.dp, vertical = 4.dp)
                            .clip(RoundedCornerShape(16.dp))
-                           .background(MaterialTheme.colorScheme.surfaceVariant),
+                           .background(MaterialTheme.colorScheme.surfaceVariant)
+                           .onSizeChanged { itemWidthPx = it.width },
         onDismiss = { direction ->
             when (direction) {
                 SwipeToDismissBoxValue.StartToEnd -> onDelete()
@@ -90,7 +102,18 @@ fun ReminderListItem(
             }
         },
         backgroundContent = {
-            when (swipeToDismissBoxState.dismissDirection) {
+            val offsetPx = if (swipeToDismissBoxState.dismissDirection == SwipeToDismissBoxValue.Settled) {
+                0f
+            } else {
+                swipeToDismissBoxState.requireOffset()
+            }
+            val swipeFraction = if (itemWidthPx > 0) abs(offsetPx) / itemWidthPx else 0f
+            val revealedDirection = if (swipeFraction >= dismissThreshold) {
+                swipeToDismissBoxState.dismissDirection
+            } else {
+                SwipeToDismissBoxValue.Settled
+            }
+            when (revealedDirection) {
                 SwipeToDismissBoxValue.StartToEnd -> {
                     Icon(
                         imageVector = Icons.Default.Delete,
