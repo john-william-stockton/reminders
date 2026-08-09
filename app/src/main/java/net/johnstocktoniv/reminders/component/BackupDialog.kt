@@ -6,10 +6,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import net.johnstocktoniv.reminders.alarm.parseCronOrNull
 
 @Composable
 fun BackupDialog(
@@ -26,10 +32,22 @@ fun BackupDialog(
     onCancel: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    scheduledBackupEnabled: Boolean = false,
+    scheduledBackupCron: String = "0 */8 * * *",
+    scheduledBackupDestinationSet: Boolean = false,
+    onToggleScheduledBackup: (Boolean) -> Unit = {},
+    onScheduledBackupCronChange: (String) -> Unit = {},
+    onChooseScheduledBackupFolder: () -> Unit = {},
 ) {
     if (!isOpen) return
 
     var showRestoreConfirm by remember(isOpen) { mutableStateOf(false) }
+    // Local edit buffer so typing an in-progress (possibly invalid) expression doesn't get
+    // clobbered by scheduledBackupCron's own recomposition — committed upward via
+    // onScheduledBackupCronChange only once it parses, same spirit as the switch only enabling
+    // once a destination is actually chosen.
+    var cronInput by remember(isOpen, scheduledBackupCron) { mutableStateOf(scheduledBackupCron) }
+    val cronValid = parseCronOrNull(cronInput) != null
 
     if (showRestoreConfirm) {
         AlertDialog(
@@ -79,6 +97,51 @@ fun BackupDialog(
                     modifier = Modifier.testTag("importButton")
                 ) {
                     Text("Restore From File…")
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Scheduled Backup")
+                    Switch(
+                        checked = scheduledBackupEnabled,
+                        onCheckedChange = { checked ->
+                            // Turning it on with no folder chosen yet asks for one first — the
+                            // switch itself only flips once onToggleScheduledBackup is actually
+                            // invoked (by the caller, after a folder is picked), same as it
+                            // reverts to off if that picker is cancelled.
+                            if (checked && !scheduledBackupDestinationSet) {
+                                onChooseScheduledBackupFolder()
+                            } else {
+                                onToggleScheduledBackup(checked)
+                            }
+                        },
+                        modifier = Modifier.testTag("scheduledBackupSwitch")
+                    )
+                }
+                TextField(
+                    value = cronInput,
+                    onValueChange = {
+                        cronInput = it
+                        if (parseCronOrNull(it) != null) onScheduledBackupCronChange(it)
+                    },
+                    label = { Text("Backup CRON schedule") },
+                    isError = cronInput.isNotBlank() && !cronValid,
+                    supportingText = {
+                        if (cronInput.isNotBlank() && !cronValid) Text("Not a valid CRON expression")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("scheduledBackupCronField")
+                )
+                TextButton(
+                    onClick = onChooseScheduledBackupFolder,
+                    modifier = Modifier.testTag("chooseScheduledBackupFolderButton")
+                ) {
+                    Text(if (scheduledBackupDestinationSet) "Change Backup Folder…" else "Choose Backup Folder…")
                 }
             }
         },

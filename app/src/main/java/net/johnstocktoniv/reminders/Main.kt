@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -19,6 +21,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.alarm.AlarmScheduler
 import net.johnstocktoniv.reminders.backup.ReminderBackup
+import net.johnstocktoniv.reminders.backup.ScheduledBackupPrefs
+import net.johnstocktoniv.reminders.backup.ScheduledBackupScheduler
 import net.johnstocktoniv.reminders.component.RemindersScreen
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.ReminderDao
@@ -27,8 +31,30 @@ import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 class Main : ComponentActivity() {
     private lateinit var dao: ReminderDao
 
+    // Backed by mutableStateOf (not remember) so they're readable/writable from both the
+    // activity-result callbacks below (registered before onCreate/setContent run) and the
+    // Compose tree built in onCreate.
+    private var scheduledBackupEnabled by mutableStateOf(false)
+    private var scheduledBackupCron by mutableStateOf(ScheduledBackupPrefs.DEFAULT_CRON)
+    private var scheduledBackupDestinationSet by mutableStateOf(false)
+
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private val openScheduledBackupFolder =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            ScheduledBackupPrefs.setDestinationTreeUri(applicationContext, uri.toString())
+            ScheduledBackupPrefs.setEnabled(applicationContext, true)
+            scheduledBackupDestinationSet = true
+            scheduledBackupEnabled = true
+            ScheduledBackupScheduler.schedule(applicationContext)
+            Toast.makeText(this, "Scheduled backup enabled", Toast.LENGTH_SHORT).show()
+        }
 
     private val createBackupDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-yaml")) { uri ->
@@ -76,6 +102,11 @@ class Main : ComponentActivity() {
         requestAlarmPermissionsIfNeeded()
 
         lifecycleScope.launch { AlarmScheduler.rearmAll(applicationContext) }
+
+        scheduledBackupEnabled = ScheduledBackupPrefs.isEnabled(applicationContext)
+        scheduledBackupCron = ScheduledBackupPrefs.getCronExpression(applicationContext)
+        scheduledBackupDestinationSet = ScheduledBackupPrefs.getDestinationTreeUri(applicationContext) != null
+        ScheduledBackupScheduler.rearm(applicationContext)
 
         setContent {
             RemindersTheme {
@@ -133,7 +164,25 @@ class Main : ComponentActivity() {
                         toDelete.forEach { AlarmScheduler.cancel(applicationContext, it.reminder.id) }
                     },
                     onExportBackup = { createBackupDocument.launch("reminders-backup.yaml") },
-                    onImportBackup = { openBackupDocument.launch(arrayOf("*/*")) }
+                    onImportBackup = { openBackupDocument.launch(arrayOf("*/*")) },
+                    scheduledBackupEnabled = scheduledBackupEnabled,
+                    scheduledBackupCron = scheduledBackupCron,
+                    scheduledBackupDestinationSet = scheduledBackupDestinationSet,
+                    onToggleScheduledBackup = { enabled ->
+                        scheduledBackupEnabled = enabled
+                        ScheduledBackupPrefs.setEnabled(applicationContext, enabled)
+                        if (enabled) {
+                            ScheduledBackupScheduler.schedule(applicationContext)
+                        } else {
+                            ScheduledBackupScheduler.cancel(applicationContext)
+                        }
+                    },
+                    onScheduledBackupCronChange = { cron ->
+                        scheduledBackupCron = cron
+                        ScheduledBackupPrefs.setCronExpression(applicationContext, cron)
+                        if (scheduledBackupEnabled) ScheduledBackupScheduler.schedule(applicationContext)
+                    },
+                    onChooseScheduledBackupFolder = { openScheduledBackupFolder.launch(null) }
                 )
             }
         }

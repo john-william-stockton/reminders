@@ -91,6 +91,12 @@ fun RemindersScreen(
     onClearAll: (List<ReminderWithSchedules>) -> Unit,
     onExportBackup: () -> Unit = {},
     onImportBackup: () -> Unit = {},
+    scheduledBackupEnabled: Boolean = false,
+    scheduledBackupCron: String = "0 */8 * * *",
+    scheduledBackupDestinationSet: Boolean = false,
+    onToggleScheduledBackup: (Boolean) -> Unit = {},
+    onScheduledBackupCronChange: (String) -> Unit = {},
+    onChooseScheduledBackupFolder: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -165,7 +171,13 @@ fun RemindersScreen(
         onImport = {
             onImportBackup()
             backupDialogActive = false
-        }
+        },
+        scheduledBackupEnabled = scheduledBackupEnabled,
+        scheduledBackupCron = scheduledBackupCron,
+        scheduledBackupDestinationSet = scheduledBackupDestinationSet,
+        onToggleScheduledBackup = onToggleScheduledBackup,
+        onScheduledBackupCronChange = onScheduledBackupCronChange,
+        onChooseScheduledBackupFolder = onChooseScheduledBackupFolder
     )
     Scaffold(
         modifier = modifier,

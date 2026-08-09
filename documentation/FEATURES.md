@@ -1,10 +1,14 @@
 # Features
-
 A snapshot of what's implemented today and what's still open. Update this alongside feature work.
 
 ## Not yet implemented
 
-(none currently)
+- Add a "Missed" reminder state so that they can be open/incomplete, closed/complete, missed/incomplete, and deleted
+- Streak tracking. For series reminders, keep track of the completion streak and include it in the `ReminderListItem`
+  - Marking a reminder as complete will reset the streak back to zero if the streak was negative and will add 1 to the streak.
+  - Marking a reminder as missed will reset the streak back to zero if the streak was positive and will subtract 1 from the streak
+  - Negative simply shows a streak in the wrong direction show -x as `X days missed` instead of `-X day streak`
+- Allow creating reminders on dates that have already passed, but guard it behind a user confirmation dialog
 
 ## Implemented
 
@@ -78,13 +82,25 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     an "Are you sure?" confirmation, since it wipes and replaces the current database wholesale.
     Restored reminders keep their original ids so their alarms line up, and all alarms are
     cancelled/re-armed around the restore
+  - Scheduled backup: an opt-in, CRON-driven periodic export (default `0 */8 * * *`, editable) to
+    a folder chosen once via the system folder picker. Each run writes a new timestamped
+    `reminders-backup-<yyyy-MM-dd'T'HHmmss>.yaml` snapshot (same format as manual export) and
+    prunes the folder down to the newest 7 — unlike manual export's single overwritten file, this
+    keeps real backup history. Uses exact alarms when permitted (same fallback as reminder alarms)
+    and self-reschedules on each run (a CRON schedule isn't a fixed interval `AlarmManager` can
+    repeat on its own); re-armed on boot and app launch alongside reminders. Posts a low-importance
+    notification confirming each run's success (with the saved filename) or failure (e.g. the
+    chosen folder became inaccessible)
 
 - **Testing**
   - Unit tests for CRON schedule parsing and next-occurrence computation, including the optional
     year field (`CronScheduleTest`), and for the YAML backup round-trip and malformed-input
     handling (`ReminderBackupTest`). `AlarmScheduler`'s spawn/detach logic (`completeAndAdvance`,
     `editOccurrence`) isn't unit-tested directly since it needs a real `Context`/`AlarmManager` —
-    exercised indirectly through the Compose UI tests below instead
+    exercised indirectly through the Compose UI tests below instead. `ScheduledBackupReceiverTest`
+    covers the scheduled-backup filename format against its own pruning regex (a mismatch there
+    once meant pruning silently matched nothing); the rest of that receiver needs a real
+    `ContentResolver`/`DocumentsContract` tree and isn't unit-tested
   - Compose UI tests for the reminder and backup dialogs, the alarm screen, and the main list
     screen (`ReminderDialogTest`, `BackupDialogTest`, `AlarmScreenTest`, `RemindersScreenTest`).
     The main screen's UI lives in a dependency-free `RemindersScreen` composable (mirroring the

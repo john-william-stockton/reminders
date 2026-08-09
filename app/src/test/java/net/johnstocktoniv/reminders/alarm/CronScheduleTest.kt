@@ -87,4 +87,16 @@ class CronScheduleTest {
         val own = LocalDateTime.of(2026, 12, 25, 9, 30)
         assertFalse(isRecurring(listOf(schedule("30 9 25 12 * 2026")), own))
     }
+
+    @Test
+    fun nextOccurrenceForExpressionComputesNextMatchingTime() {
+        val after = LocalDateTime.of(2026, 8, 4, 8, 0) // Tuesday
+        val next = nextOccurrenceForExpression("0 */8 * * *", after)
+        assertEquals(LocalDateTime.of(2026, 8, 4, 16, 0), next)
+    }
+
+    @Test
+    fun nextOccurrenceForExpressionIsNullForInvalidExpression() {
+        assertNull(nextOccurrenceForExpression("not a cron", LocalDateTime.now()))
+    }
 }

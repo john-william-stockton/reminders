@@ -27,6 +27,14 @@ private val cronParser = CronParser(cronDefinition)
 fun parseCronOrNull(expression: String): Cron? =
     runCatching { cronParser.parse(expression).validate() }.getOrNull()
 
+// Same computation as nextOccurrence() below, but for a single standalone expression rather than
+// a reminder's list of ReminderSchedule rows — used by the scheduled-backup CRON, which has no
+// backing reminder to attach a ReminderSchedule to.
+fun nextOccurrenceForExpression(expression: String, after: LocalDateTime): LocalDateTime? =
+    parseCronOrNull(expression)
+        ?.let { ExecutionTime.forCron(it).nextExecution(after.atZone(ZoneId.systemDefault())).orElse(null) }
+        ?.toLocalDateTime()
+
 // minOrNull() across every schedule's next match is what guarantees overlapping schedules on the
 // same reminder collapse to a single next occurrence instead of producing more than one.
 fun nextOccurrence(schedules: List<ReminderSchedule>, after: LocalDateTime): LocalDateTime? {
