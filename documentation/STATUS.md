@@ -1,15 +1,9 @@
 # Status
 
-A snapshot of what's implemented, what's still open, and known defects in the current codebase.
-Update this alongside feature work and bug fixes.
+A historical record of implemented features and resolved bugs. See `open-bugs.md` for known
+defects not yet fixed, and `planned-features.md` for features not yet implemented.
 
-## Features
-
-### Not yet implemented
-
-- Allow creating reminders on dates that have already passed, but guard it behind a user confirmation dialog
-
-### Implemented
+## Implemented Features
 
 - **Reminders**
   - Create, edit, and delete reminders (title required; optional description)
@@ -151,13 +145,7 @@ Update this alongside feature work and bug fixes.
     isolation)
   - DAO test coverage for the backup restore path (`ReminderDaoTest`'s `restoreAll_*` tests)
 
-## Bugs
-
-### Open
-
-(none currently)
-
-### Resolved
+## Resolved Bugs
 
 - **The positional threshold for a `ReminderListItem`'s `SwipeToDismissBox`/`SwipeToDismissBoxState`
   wasn't being respected — items changed colors immediately after any amount of lateral movement.**

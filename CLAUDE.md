@@ -1,1 +1,1 @@
-Ensure that `README.md` and `documentation/STATUS.md` are kept up-to-date after any significant changes.
+Ensure that `README.md`, `documentation/STATUS.md`, `documentation/open-bugs.md`, and `documentation/planned-features.md` are kept up-to-date after any significant changes.

@@ -49,4 +49,6 @@ app/src/main/java/net/johnstocktoniv/reminders/
 
 ## Documentation
 
-See [STATUS.md](documentation/STATUS.md) for implemented features, known gaps, and known defects.
+See [STATUS.md](documentation/STATUS.md) for a historical record of implemented features and
+resolved bugs, [open-bugs.md](documentation/open-bugs.md) for known defects not yet fixed, and
+[planned-features.md](documentation/planned-features.md) for features not yet implemented.
