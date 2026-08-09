@@ -61,7 +61,7 @@ class AlarmActivity : ComponentActivity() {
         startAlerting()
         enableEdgeToEdge()
 
-        // No plain dismiss, by design (see FEATURES.md) — back would otherwise finish the
+        // No plain dismiss, by design (see STATUS.md) — back would otherwise finish the
         // activity and silently stop the alarm via onDestroy()/stopAlerting() without going
         // through complete() or snooze(). Swallow it instead so Mark Complete/Snooze stay the
         // only ways to silence the alarm.

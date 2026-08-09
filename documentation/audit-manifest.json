@@ -3,8 +3,6 @@
   "generated": "2026-08-05",
   "files": {
     "README.md": { "hash": "dba8e321edcb351fd5771f8e1dccae8ed28f0cc0588a4c6d9647b5410818b9f8", "last_analyzed": "2026-08-05" },
-    "documentation/FEATURES.md": { "hash": "603ee1ad6bf2bb847e26d9813fe4e065062ff0b6991c8fc6b146c95cb39b926c", "last_analyzed": "2026-08-05" },
-    "documentation/BUGS.md": { "hash": "0123ec5124335b7310732c4d4c7d31756cbf2e510a2f79da86d119deb32e9bbd", "last_analyzed": "2026-08-05" },
     "documentation/update-documentation.md": { "hash": "5971f006e2232342f43b1f44256860e549a0e41c4776bcb7afc7610689d223a9", "last_analyzed": "2026-08-05" },
     "app/src/main/AndroidManifest.xml": { "hash": "be8f3dfc9bac29cab32d07891834637b3b60c5ab2290db8d1d22a12beb159fca", "last_analyzed": "2026-08-05" },
     "app/src/main/java/net/johnstocktoniv/reminders/Main.kt": { "hash": "0eb6dd56ff9d5919c42902d0a7e3ed5d26dcca1cdec92fe3c3b7e9a35c8a91b4", "last_analyzed": "2026-08-05" },

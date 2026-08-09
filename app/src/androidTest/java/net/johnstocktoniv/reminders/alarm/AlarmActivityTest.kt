@@ -33,7 +33,7 @@ class AlarmActivityTest {
     }
 
     // Regression test for the "no plain dismiss" alarm-screen design: the system back button used
-    // to bypass it entirely (see BUGS.md), since AlarmActivity never intercepted it and back would
+    // to bypass it entirely (see STATUS.md), since AlarmActivity never intercepted it and back would
     // just finish() the activity, silently stopping the alarm without going through
     // complete()/snooze(). Fixed via onBackPressedDispatcher.addCallback.
     @Test
@@ -47,7 +47,7 @@ class AlarmActivityTest {
         }
     }
 
-    // Regression test for a second alarm arriving while one is already showing (see BUGS.md):
+    // Regression test for a second alarm arriving while one is already showing (see STATUS.md):
     // AlarmReceiver launches AlarmActivity with SINGLE_TOP|CLEAR_TOP, so the running instance gets
     // the new alarm via onNewIntent() rather than onCreate(). AlarmActivity didn't previously
     // update its held intent/extras there, so the screen (and Mark Complete/Snooze) kept acting on
