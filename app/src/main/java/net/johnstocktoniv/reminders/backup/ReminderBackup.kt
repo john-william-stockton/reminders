@@ -47,6 +47,7 @@ object ReminderBackup {
                 reminder.description.split("\n").forEach { appendLine("      - ${quote(it)}") }
             }
             appendLine("    status: ${reminder.status}")
+            appendLine("    streak: ${reminder.streak}")
             if (schedules.isEmpty()) {
                 appendLine("    schedules: []")
             } else {
@@ -107,6 +108,7 @@ object ReminderBackup {
             var time: LocalTime? = null
             var description = ""
             var status = ReminderStatus.OPEN
+            var streak = 0
             val schedules = mutableListOf<String>()
 
             while (index < lines.size && lines[index].startsWith("    ")) {
@@ -120,6 +122,8 @@ object ReminderBackup {
                         time = if (value == "null") null else LocalTime.parse(value, storageTimeFormatter)
                     }
                     field.startsWith("status:") -> status = ReminderStatus.valueOf(field.removePrefix("status:").trim())
+                    // Absent in backups exported before streak tracking existed — stays 0.
+                    field.startsWith("streak:") -> streak = field.removePrefix("streak:").trim().toInt()
                     // Backward compatibility with backups exported before the Missed state existed.
                     field.startsWith("complete:") ->
                         status = if (field.removePrefix("complete:").trim().toBooleanStrict()) {
@@ -159,7 +163,8 @@ object ReminderBackup {
                         date = date,
                         description = description,
                         time = time,
-                        status = status
+                        status = status,
+                        streak = streak
                     ),
                     schedules = schedules.map { ReminderSchedule(reminderId = id, cronExpression = it) }
                 )

@@ -95,3 +95,9 @@ val MIGRATION_4_5 = Migration(4, 5) { connection: SQLiteConnection ->
     connection.execSQL("UPDATE reminders SET status = CASE WHEN complete = 1 THEN 'COMPLETE' ELSE 'OPEN' END")
     connection.execSQL("ALTER TABLE reminders DROP COLUMN complete")
 }
+
+// Purely additive: introduces the completion-streak counter (see AlarmScheduler.nextStreak).
+// Existing rows default to 0 — an unknown/reset streak rather than guessing at their history.
+val MIGRATION_5_6 = Migration(5, 6) { connection: SQLiteConnection ->
+    connection.execSQL("ALTER TABLE reminders ADD COLUMN streak INTEGER NOT NULL DEFAULT 0")
+}

@@ -34,7 +34,11 @@ data class Reminder(
     val date: LocalDate = LocalDate.now(),
     val description: String = "",
     val time: LocalTime? = null,
-    val status: ReminderStatus = ReminderStatus.OPEN
+    val status: ReminderStatus = ReminderStatus.OPEN,
+    // Only meaningful for a genuinely recurring reminder (see AlarmScheduler.nextStreak) —
+    // propagated forward onto each newly spawned occurrence, same as title/description/schedules
+    // already are. Positive: consecutive completions. Negative: consecutive misses.
+    val streak: Int = 0
 ) {
     // date/time are always derived from a CRON schedule's computed next occurrence now (see
     // ReminderDialog/CronSchedule.kt), so `time` is never actually null for a reminder saved

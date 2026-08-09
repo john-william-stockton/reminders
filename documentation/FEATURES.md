@@ -3,10 +3,6 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 ## Not yet implemented
 
-- Streak tracking. For series reminders, keep track of the completion streak and include it in the `ReminderListItem`
-  - Marking a reminder as complete will reset the streak back to zero if the streak was negative and will add 1 to the streak.
-  - Marking a reminder as missed will reset the streak back to zero if the streak was positive and will subtract 1 from the streak
-  - Negative simply shows a streak in the wrong direction show -x as `X days missed` instead of `-X day streak`
 - Allow creating reminders on dates that have already passed, but guard it behind a user confirmation dialog
 
 ## Implemented
@@ -41,6 +37,15 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     only" spawns the next occurrence from the pre-edit schedule (exactly as completing it would),
     then detaches the current row into a standalone one-off pinned to its own already-fixed date/
     time, carrying the user's title/description edits — the series continues untouched
+  - A genuinely recurring reminder tracks a completion streak (`Reminder.streak`), propagated
+    forward onto each newly spawned occurrence the same way title/description/schedules already
+    are. Completing resets a negative streak to 0 then adds 1; marking Missed resets a positive
+    streak to 0 then subtracts 1 — so alternating complete/miss never lets the "wrong direction"
+    count linger. Shown in `ReminderListItem` only for series reminders with a nonzero streak: "N
+    day(s) streak" (green) for positive, "N day(s) missed" (red) for negative — never the naive
+    "-N day streak". Reopening a Complete/Missed reminder back to Open leaves its streak as-is
+    (not specified, and not cleanly reversible once a next occurrence may have already spawned
+    from it)
 
 - **List & navigation**
   - Three tabs: **Today**, **Incomplete**, **Complete**. "Incomplete" is strictly Open reminders
@@ -95,6 +100,7 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     - v3 → v4: backfills a pinned-year CRON schedule (from its own date/time) onto any reminder
       predating the always-CRON model, so nothing loses its due date
     - v4 → v5: replaces the `complete: Boolean` column with `status` (Open/Complete/Missed)
+    - v5 → v6: adds the `streak` counter column (defaults existing rows to 0)
   - Backup/restore: export all reminders (with their CRON schedules) to a YAML file via the system
     file picker, and restore from a previously exported file — a destructive action gated behind
     an "Are you sure?" confirmation, since it wipes and replaces the current database wholesale.

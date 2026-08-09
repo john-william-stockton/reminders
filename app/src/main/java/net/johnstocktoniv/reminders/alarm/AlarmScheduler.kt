@@ -62,9 +62,19 @@ object AlarmScheduler {
 
     private suspend fun advanceTo(context: Context, current: ReminderWithSchedules, status: ReminderStatus) {
         val dao = DatabaseProvider.dao(context)
-        dao.upsert(current.reminder.copy(status = status))
+        val newStreak = nextStreak(current.reminder.streak, status)
+        dao.upsert(current.reminder.copy(status = status, streak = newStreak))
         cancel(context, current.reminder.id)
-        spawnNextOccurrence(context, current)
+        spawnNextOccurrence(context, current, newStreak)
+    }
+
+    // A completion resets a negative (missed) streak to 0 before adding 1; a miss resets a
+    // positive (completed) streak to 0 before subtracting 1 — so alternating complete/miss never
+    // lets the "wrong direction" count linger into the new streak.
+    private fun nextStreak(current: Int, status: ReminderStatus): Int = when (status) {
+        ReminderStatus.COMPLETE -> (if (current < 0) 0 else current) + 1
+        ReminderStatus.MISSED -> (if (current > 0) 0 else current) - 1
+        ReminderStatus.OPEN -> current
     }
 
     // Detaches a single occurrence from its series: the series continues from the *original*
@@ -83,7 +93,14 @@ object AlarmScheduler {
         schedule(context, edited)
     }
 
-    private suspend fun spawnNextOccurrence(context: Context, current: ReminderWithSchedules) {
+    // streak defaults to the current row's own value — used as-is by editOccurrence (which isn't
+    // a complete/miss transition, so the streak shouldn't change), while advanceTo() passes the
+    // already-updated post-transition value explicitly.
+    private suspend fun spawnNextOccurrence(
+        context: Context,
+        current: ReminderWithSchedules,
+        streak: Int = current.reminder.streak
+    ) {
         if (current.schedules.isEmpty()) return
         val dao = DatabaseProvider.dao(context)
 
@@ -107,7 +124,8 @@ object AlarmScheduler {
             title = current.reminder.title,
             description = current.reminder.description,
             date = next.toLocalDate(),
-            time = next.toLocalTime()
+            time = next.toLocalTime(),
+            streak = streak
         )
         val newId = dao.saveWithSchedules(spawned, current.schedules.map { it.cronExpression })
         schedule(context, spawned.copy(id = newId))

@@ -409,6 +409,60 @@ class RemindersScreenTest {
     }
 
     @Test
+    fun recurringReminderWithPositiveStreakShowsPluralizedStreakText() {
+        val reminder = testReminder(id = 23, title = "Standup", date = LocalDate.now(), streak = 5)
+        setScreen(reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = listOf("0 9 * * *"))))
+
+        composeTestRule.onNodeWithText("5 days streak").assertIsDisplayed()
+    }
+
+    @Test
+    fun recurringReminderWithSingularPositiveStreakUsesSingularDay() {
+        val reminder = testReminder(id = 24, title = "Standup", date = LocalDate.now(), streak = 1)
+        setScreen(reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = listOf("0 9 * * *"))))
+
+        composeTestRule.onNodeWithText("1 day streak").assertIsDisplayed()
+    }
+
+    @Test
+    fun recurringReminderWithNegativeStreakShowsDaysMissedInstead() {
+        val reminder = testReminder(id = 25, title = "Standup", date = LocalDate.now(), streak = -3)
+        setScreen(reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = listOf("0 9 * * *"))))
+
+        composeTestRule.onNodeWithText("3 days missed").assertIsDisplayed()
+        composeTestRule.onNodeWithText("-3 day streak").assertDoesNotExist()
+    }
+
+    @Test
+    fun recurringReminderWithZeroStreakShowsNoStreakText() {
+        val reminder = testReminder(id = 26, title = "Standup", date = LocalDate.now(), streak = 0)
+        setScreen(reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = listOf("0 9 * * *"))))
+
+        composeTestRule.onNodeWithText("streak", substring = true).assertDoesNotExist()
+        composeTestRule.onNodeWithText("missed", substring = true).assertDoesNotExist()
+    }
+
+    // The underlying counter still updates for a one-off reminder's own completion/miss (see
+    // AlarmScheduler.nextStreak) — it's just never surfaced, since "streak" only means anything
+    // for something that actually repeats.
+    @Test
+    fun nonRecurringReminderNeverShowsStreakEvenIfNonzero() {
+        val date = LocalDate.of(2026, 12, 25)
+        val time = LocalTime.of(9, 30)
+        val reminder = testReminder(id = 27, title = "Christmas", date = date, time = time, streak = 4)
+        setScreen(
+            reminders = listOf(testReminderWithSchedules(reminder, cronExpressions = listOf("30 9 25 12 * 2026")))
+        )
+
+        // A future-dated one-off wouldn't render on the default Today tab at all regardless of
+        // this assertion, so switch to Incomplete (shows everything regardless of date) to
+        // actually exercise the "recurring icon hidden -> streak hidden too" logic.
+        composeTestRule.onNodeWithText("Incomplete").performClick()
+        composeTestRule.onNodeWithText("Christmas").assertIsDisplayed()
+        composeTestRule.onNodeWithText("streak", substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun choosingThisOccurrenceOnlyInvokesOnEditOccurrenceAndClosesDialog() {
         var originalPassed: ReminderWithSchedules? = null
         var editedPassed: Reminder? = null

@@ -202,6 +202,19 @@ fun ReminderListItem(
                     )
                 }
             }
+            // Streak only means anything for a genuinely recurring reminder — the counter itself
+            // still updates on a one-off's completion/miss (see AlarmScheduler.nextStreak), it's
+            // just never surfaced here. A fresh series with no completions/misses yet (streak 0)
+            // has nothing to report.
+            if (showsRecurringIcon && reminder.streak != 0) {
+                val streakMagnitude = abs(reminder.streak)
+                val dayWord = if (streakMagnitude == 1) "day" else "days"
+                Text(
+                    if (reminder.streak > 0) "$streakMagnitude $dayWord streak" else "$streakMagnitude $dayWord missed",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (reminder.streak > 0) OnSuccessContainer else MaterialTheme.colorScheme.error
+                )
+            }
             if (showDescription && reminder.description != "") {
                 Text(reminder.description)
             }

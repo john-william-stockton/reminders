@@ -18,9 +18,18 @@ class ReminderBackupTest {
         date: LocalDate = LocalDate.of(2026, 8, 5),
         time: LocalTime? = LocalTime.of(9, 0),
         status: ReminderStatus = ReminderStatus.OPEN,
+        streak: Int = 0,
         cronExpressions: List<String> = emptyList(),
     ): ReminderWithSchedules = ReminderWithSchedules(
-        reminder = Reminder(id = id, title = title, date = date, description = description, time = time, status = status),
+        reminder = Reminder(
+            id = id,
+            title = title,
+            date = date,
+            description = description,
+            time = time,
+            status = status,
+            streak = streak
+        ),
         schedules = cronExpressions.map { ReminderSchedule(reminderId = id, cronExpression = it) }
     )
 
@@ -98,6 +107,38 @@ class ReminderBackupTest {
         val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
 
         assertEquals(original, restored.reminders)
+    }
+
+    @Test
+    fun roundTripsAPositiveAndNegativeStreak() {
+        val original = listOf(
+            reminderWithSchedules(id = 6, title = "On a streak", streak = 5),
+            reminderWithSchedules(id = 7, title = "Fell off", streak = -3)
+        )
+
+        val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
+
+        assertEquals(original, restored.reminders)
+    }
+
+    // Absent in backups exported before streak tracking existed — stays 0 rather than a parse
+    // failure.
+    @Test
+    fun fromYamlDefaultsMissingStreakFieldToZero() {
+        val legacyYaml = """
+            reminders:
+              - id: 1
+                title: "No Streak Field"
+                date: 2026-08-05
+                time: 09:00:00
+                description: []
+                status: OPEN
+                schedules: []
+        """.trimIndent()
+
+        val restored = ReminderBackup.fromYaml(legacyYaml).getOrThrow()
+
+        assertEquals(0, restored.reminders.single().reminder.streak)
     }
 
     // Backward compatibility with backups exported before the Missed state existed, which wrote

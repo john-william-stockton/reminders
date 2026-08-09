@@ -19,13 +19,15 @@ fun testReminder(
     date: LocalDate = LocalDate.now(),
     time: LocalTime? = null,
     status: ReminderStatus = ReminderStatus.OPEN,
+    streak: Int = 0,
 ): Reminder = Reminder(
     id = id,
     title = title,
     description = description,
     date = date,
     time = time,
-    status = status
+    status = status,
+    streak = streak
 )
 
 fun testReminderWithSchedules(
