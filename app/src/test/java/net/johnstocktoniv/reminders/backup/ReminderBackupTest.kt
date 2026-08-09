@@ -2,6 +2,7 @@ package net.johnstocktoniv.reminders.backup
 
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderSchedule
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -16,10 +17,10 @@ class ReminderBackupTest {
         description: String = "",
         date: LocalDate = LocalDate.of(2026, 8, 5),
         time: LocalTime? = LocalTime.of(9, 0),
-        complete: Boolean = false,
+        status: ReminderStatus = ReminderStatus.OPEN,
         cronExpressions: List<String> = emptyList(),
     ): ReminderWithSchedules = ReminderWithSchedules(
-        reminder = Reminder(id = id, title = title, date = date, description = description, time = time, complete = complete),
+        reminder = Reminder(id = id, title = title, date = date, description = description, time = time, status = status),
         schedules = cronExpressions.map { ReminderSchedule(reminderId = id, cronExpression = it) }
     )
 
@@ -29,7 +30,7 @@ class ReminderBackupTest {
 
         val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
 
-        assertEquals(original, restored)
+        assertEquals(original, restored.reminders)
     }
 
     @Test
@@ -44,7 +45,7 @@ class ReminderBackupTest {
 
         val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
 
-        assertEquals(original, restored)
+        assertEquals(original, restored.reminders)
     }
 
     @Test
@@ -53,7 +54,7 @@ class ReminderBackupTest {
 
         val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
 
-        assertEquals(original, restored)
+        assertEquals(original, restored.reminders)
     }
 
     @Test
@@ -68,26 +69,104 @@ class ReminderBackupTest {
 
         val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
 
-        assertEquals(original, restored)
+        assertEquals(original, restored.reminders)
     }
 
     @Test
     fun roundTripsAnEmptyReminderList() {
         val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(emptyList())).getOrThrow()
 
-        assertTrue(restored.isEmpty())
+        assertTrue(restored.reminders.isEmpty())
     }
 
     @Test
     fun roundTripsMultipleReminders() {
         val original = listOf(
-            reminderWithSchedules(id = 1, title = "First", complete = true),
+            reminderWithSchedules(id = 1, title = "First", status = ReminderStatus.COMPLETE),
             reminderWithSchedules(id = 2, title = "Second", cronExpressions = listOf("0 9 * * *"))
         )
 
         val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
 
-        assertEquals(original, restored)
+        assertEquals(original, restored.reminders)
+    }
+
+    @Test
+    fun roundTripsAMissedReminder() {
+        val original = listOf(reminderWithSchedules(id = 5, title = "Missed One", status = ReminderStatus.MISSED))
+
+        val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(original)).getOrThrow()
+
+        assertEquals(original, restored.reminders)
+    }
+
+    // Backward compatibility with backups exported before the Missed state existed, which wrote
+    // `complete: true/false` instead of `status: ...`.
+    @Test
+    fun fromYamlParsesLegacyCompleteField() {
+        val legacyYaml = """
+            reminders:
+              - id: 1
+                title: "Legacy Complete"
+                date: 2026-08-05
+                time: 09:00:00
+                description: []
+                complete: true
+                schedules: []
+        """.trimIndent()
+
+        val restored = ReminderBackup.fromYaml(legacyYaml).getOrThrow()
+
+        assertEquals(ReminderStatus.COMPLETE, restored.reminders.single().reminder.status)
+    }
+
+    @Test
+    fun fromYamlParsesLegacyIncompleteField() {
+        val legacyYaml = """
+            reminders:
+              - id: 1
+                title: "Legacy Incomplete"
+                date: 2026-08-05
+                time: 09:00:00
+                description: []
+                complete: false
+                schedules: []
+        """.trimIndent()
+
+        val restored = ReminderBackup.fromYaml(legacyYaml).getOrThrow()
+
+        assertEquals(ReminderStatus.OPEN, restored.reminders.single().reminder.status)
+    }
+
+    @Test
+    fun roundTripsScheduledBackupSettingsWithADestination() {
+        val settings = ScheduledBackupSettings(
+            enabled = true,
+            cronExpression = "0 */8 * * *",
+            destinationTreeUri = "content://com.android.externalstorage.documents/tree/primary%3ABackups"
+        )
+
+        val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(emptyList(), settings)).getOrThrow()
+
+        assertEquals(settings, restored.scheduledBackupSettings)
+    }
+
+    @Test
+    fun roundTripsScheduledBackupSettingsWithNoDestinationChosenYet() {
+        val settings = ScheduledBackupSettings(enabled = false, cronExpression = "0 */8 * * *", destinationTreeUri = null)
+
+        val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(emptyList(), settings)).getOrThrow()
+
+        assertEquals(settings, restored.scheduledBackupSettings)
+    }
+
+    // Both the omitted-parameter and legacy-file cases should behave the same way: no
+    // scheduledBackup: section at all, rather than defaulting to some guessed settings.
+    @Test
+    fun toYamlOmitsScheduledBackupSectionWhenSettingsNotProvided() {
+        val restored = ReminderBackup.fromYaml(ReminderBackup.toYaml(emptyList())).getOrThrow()
+
+        assertEquals(null, restored.scheduledBackupSettings)
     }
 
     @Test

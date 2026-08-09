@@ -67,7 +67,10 @@ class ScheduledBackupReceiver : BroadcastReceiver() {
             return
         }
 
-        val yaml = ReminderBackup.toYaml(DatabaseProvider.dao(context).readAll().first())
+        val yaml = ReminderBackup.toYaml(
+            DatabaseProvider.dao(context).readAll().first(),
+            ScheduledBackupPrefs.currentSettings(context)
+        )
         val wrote = runCatching {
             resolver.openOutputStream(newFileUri)?.use { it.write(yaml.toByteArray()) } != null
         }.getOrDefault(false)

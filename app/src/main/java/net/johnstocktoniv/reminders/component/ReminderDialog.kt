@@ -32,6 +32,7 @@ import net.johnstocktoniv.reminders.alarm.nextOccurrence
 import net.johnstocktoniv.reminders.alarm.parseCronOrNull
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderSchedule
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.database.dateFormatter
 import net.johnstocktoniv.reminders.database.timeFormatter
@@ -44,6 +45,7 @@ fun ReminderDialog(
     onSave: (Reminder, List<String>) -> Unit,
     reminderWithSchedules: ReminderWithSchedules? = null,
     onEditOccurrence: (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
+    onDelete: () -> Unit = {},
 ) {
     if (!isOpen) return
 
@@ -56,6 +58,7 @@ fun ReminderDialog(
         mutableStateOf(reminder?.description.orEmpty())
     }
     var showSeriesChoice by remember(reminder) { mutableStateOf(false) }
+    var showDeleteConfirm by remember(reminder) { mutableStateOf(false) }
     // Seeds one blank row for a brand-new reminder so there's always a visible field to type
     // into, rather than an empty list the user has to know to press "Add schedule" to populate.
     val scheduleInputs = remember(reminderWithSchedules) {
@@ -85,11 +88,38 @@ fun ReminderDialog(
     // own occurrence is genuinely part of a series — a brand-new reminder, a completed one, or a
     // one-off pinned to a single instant has no "series" to distinguish an edit from, so editing
     // those just saves normally with no prompt.
-    val hasFutureAfterOwn = reminderWithSchedules != null && !reminderWithSchedules.reminder.complete &&
+    val hasFutureAfterOwn = reminderWithSchedules != null &&
+        reminderWithSchedules.reminder.status != ReminderStatus.COMPLETE &&
         isRecurring(
             reminderWithSchedules.schedules,
             reminderWithSchedules.reminder.date.atTime(reminderWithSchedules.reminder.effectiveTime())
         )
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Are you sure?") },
+            text = { Text("This reminder will be permanently deleted. This can't be undone.") },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                ) {
+                    OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                    Button(
+                        onClick = {
+                            showDeleteConfirm = false
+                            onDelete()
+                        },
+                        modifier = Modifier.testTag("confirmDeleteButton")
+                    ) {
+                        Text("Delete")
+                    }
+                }
+            }
+        )
+        return
+    }
 
     if (showSeriesChoice) {
         AlertDialog(
@@ -207,30 +237,43 @@ fun ReminderDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                if (!titleValid || !schedulesValid) {
-                    showErrors = true
-                    return@Button
+            // All three actions centered in one row (rather than Save/Delete in confirmButton and
+            // Cancel stranded in dismissButton) so Delete doesn't strand apart from Save/Cancel.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+            ) {
+                if (reminder != null) {
+                    OutlinedButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.testTag("deleteButton")
+                    ) {
+                        Text("Delete")
+                    }
                 }
-                if (hasFutureAfterOwn) {
-                    showSeriesChoice = true
-                    return@Button
+                OutlinedButton(onClick = onCancel) { Text("Cancel") }
+                Button(onClick = {
+                    if (!titleValid || !schedulesValid) {
+                        showErrors = true
+                        return@Button
+                    }
+                    if (hasFutureAfterOwn) {
+                        showSeriesChoice = true
+                        return@Button
+                    }
+                    onSave(
+                        (reminder ?: Reminder()).copy(
+                            title = titleInput.trim(),
+                            description = descriptionInput.trim(),
+                            date = computedNext!!.toLocalDate(),
+                            time = computedNext.toLocalTime()
+                        ),
+                        nonBlankSchedules
+                    )
+                }) {
+                    Text("Save")
                 }
-                onSave(
-                    (reminder ?: Reminder()).copy(
-                        title = titleInput.trim(),
-                        description = descriptionInput.trim(),
-                        date = computedNext!!.toLocalDate(),
-                        time = computedNext.toLocalTime()
-                    ),
-                    nonBlankSchedules
-                )
-            }) {
-                Text("Save")
             }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onCancel) { Text("Cancel") }
         }
     )
 }

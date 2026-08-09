@@ -14,6 +14,7 @@ import net.johnstocktoniv.reminders.STABLE_FUTURE_CRON
 import net.johnstocktoniv.reminders.alarm.nextOccurrence
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderSchedule
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.database.dateFormatter
 import net.johnstocktoniv.reminders.database.timeFormatter
@@ -36,6 +37,7 @@ class ReminderDialogTest {
         onCancel: () -> Unit = {},
         onSave: (Reminder, List<String>) -> Unit = { _, _ -> },
         onEditOccurrence: (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
+        onDelete: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             RemindersTheme {
@@ -44,7 +46,8 @@ class ReminderDialogTest {
                     onCancel = onCancel,
                     onSave = onSave,
                     reminderWithSchedules = reminderWithSchedules,
-                    onEditOccurrence = onEditOccurrence
+                    onEditOccurrence = onEditOccurrence,
+                    onDelete = onDelete
                 )
             }
         }
@@ -316,7 +319,12 @@ class ReminderDialogTest {
     @Test
     fun editingAlreadyCompleteReminderSkipsSeriesChoiceEvenIfRecurring() {
         var saveCalled = false
-        val reminder = testReminder(title = "Done", date = LocalDate.now(), time = LocalTime.of(9, 0), complete = true)
+        val reminder = testReminder(
+            title = "Done",
+            date = LocalDate.now(),
+            time = LocalTime.of(9, 0),
+            status = ReminderStatus.COMPLETE
+        )
         setDialog(
             reminderWithSchedules = testReminderWithSchedules(reminder = reminder, cronExpressions = listOf("0 9 * * *")),
             onSave = { _, _ -> saveCalled = true }
@@ -343,5 +351,63 @@ class ReminderDialogTest {
 
         composeTestRule.onNodeWithText("Apply changes to?").assertDoesNotExist()
         assert(saveCalled) { "expected onSave to be invoked directly" }
+    }
+
+    @Test
+    fun addModeHasNoDeleteButton() {
+        setDialog()
+
+        composeTestRule.onNodeWithTag("deleteButton").assertDoesNotExist()
+    }
+
+    @Test
+    fun editModeShowsDeleteButton() {
+        setDialog(reminderWithSchedules = testReminderWithSchedules(testReminder(title = "Existing")))
+
+        composeTestRule.onNodeWithTag("deleteButton").assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingDeleteShowsConfirmationBeforeInvokingOnDelete() {
+        var deleteCalled = false
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(testReminder(title = "Existing")),
+            onDelete = { deleteCalled = true }
+        )
+
+        composeTestRule.onNodeWithTag("deleteButton").performClick()
+
+        composeTestRule.onNodeWithText("Are you sure?").assertIsDisplayed()
+        assert(!deleteCalled) { "expected onDelete not to be invoked before confirming" }
+    }
+
+    @Test
+    fun confirmingDeleteInvokesOnDelete() {
+        var deleteCalled = false
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(testReminder(title = "Existing")),
+            onDelete = { deleteCalled = true }
+        )
+
+        composeTestRule.onNodeWithTag("deleteButton").performClick()
+        composeTestRule.onNodeWithTag("confirmDeleteButton").performClick()
+
+        assert(deleteCalled) { "expected onDelete to be invoked after confirming" }
+    }
+
+    @Test
+    fun cancelingDeleteConfirmationDoesNotInvokeOnDelete() {
+        var deleteCalled = false
+        setDialog(
+            reminderWithSchedules = testReminderWithSchedules(testReminder(title = "Existing")),
+            onDelete = { deleteCalled = true }
+        )
+
+        composeTestRule.onNodeWithTag("deleteButton").performClick()
+        composeTestRule.onNodeWithText("Cancel").performClick()
+
+        composeTestRule.onNodeWithText("Are you sure?").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Edit Reminder").assertIsDisplayed()
+        assert(!deleteCalled) { "expected onDelete not to be invoked" }
     }
 }

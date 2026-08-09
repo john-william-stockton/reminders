@@ -55,7 +55,18 @@ class ReminderDaoTest {
     fun findDuplicate_ignoresCompletedReminders() = runBlocking {
         val date = LocalDate.of(2027, 1, 1)
         val time = LocalTime.of(9, 0)
-        dao.upsert(testReminder(title = "Water plants", date = date, time = time, complete = true))
+        dao.upsert(testReminder(title = "Water plants", date = date, time = time, status = ReminderStatus.COMPLETE))
+
+        val found = dao.findDuplicate("Water plants", "", date, time)
+
+        assertNull(found)
+    }
+
+    @Test
+    fun findDuplicate_ignoresMissedReminders() = runBlocking {
+        val date = LocalDate.of(2027, 1, 1)
+        val time = LocalTime.of(9, 0)
+        dao.upsert(testReminder(title = "Water plants", date = date, time = time, status = ReminderStatus.MISSED))
 
         val found = dao.findDuplicate("Water plants", "", date, time)
 
@@ -86,7 +97,7 @@ class ReminderDaoTest {
     // it wipes the current database and replaces it wholesale with the given rows.
     @Test
     fun restoreAll_replacesExistingRemindersWithGivenRows() = runBlocking {
-        dao.upsert(testReminder(title = "Old reminder", complete = true))
+        dao.upsert(testReminder(title = "Old reminder", status = ReminderStatus.COMPLETE))
 
         val restored = listOf(
             testReminderWithSchedules(testReminder(id = 10, title = "Restored One")),

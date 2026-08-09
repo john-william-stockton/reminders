@@ -26,6 +26,7 @@ import net.johnstocktoniv.reminders.backup.ScheduledBackupScheduler
 import net.johnstocktoniv.reminders.component.RemindersScreen
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.ReminderDao
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 
 class Main : ComponentActivity() {
@@ -60,7 +61,10 @@ class Main : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-yaml")) { uri ->
             if (uri == null) return@registerForActivityResult
             lifecycleScope.launch {
-                val yaml = ReminderBackup.toYaml(dao.readAll().first())
+                val yaml = ReminderBackup.toYaml(
+                    dao.readAll().first(),
+                    ScheduledBackupPrefs.currentSettings(applicationContext)
+                )
                 contentResolver.openOutputStream(uri)?.use { it.write(yaml.toByteArray()) }
                 Toast.makeText(this@Main, "Reminders exported", Toast.LENGTH_SHORT).show()
             }
@@ -75,11 +79,23 @@ class Main : ComponentActivity() {
                 return@registerForActivityResult
             }
             ReminderBackup.fromYaml(yaml).fold(
-                onSuccess = { restored ->
+                onSuccess = { contents ->
                     lifecycleScope.launch {
                         dao.readAll().first().forEach { AlarmScheduler.cancel(applicationContext, it.reminder.id) }
-                        dao.restoreAll(restored)
+                        dao.restoreAll(contents.reminders)
                         AlarmScheduler.rearmAll(applicationContext)
+
+                        // Absent in backups exported before scheduled backup existed — leaves the
+                        // current settings untouched rather than resetting them to defaults.
+                        contents.scheduledBackupSettings?.let { settings ->
+                            ScheduledBackupPrefs.applySettings(applicationContext, settings)
+                            scheduledBackupEnabled = settings.enabled
+                            scheduledBackupCron = settings.cronExpression
+                            scheduledBackupDestinationSet = settings.destinationTreeUri != null
+                            ScheduledBackupScheduler.cancel(applicationContext)
+                            if (settings.enabled) ScheduledBackupScheduler.schedule(applicationContext)
+                        }
+
                         Toast.makeText(this@Main, "Reminders restored", Toast.LENGTH_SHORT).show()
                     }
                 },
@@ -145,12 +161,24 @@ class Main : ComponentActivity() {
                     },
                     onToggleComplete = { reminderWithSchedules ->
                         val reminder = reminderWithSchedules.reminder
-                        if (!reminder.complete) {
+                        if (reminder.status != ReminderStatus.COMPLETE) {
                             lifecycleScope.launch {
                                 AlarmScheduler.completeAndAdvance(applicationContext, reminderWithSchedules)
                             }
                         } else {
-                            val updated = reminder.copy(complete = false)
+                            val updated = reminder.copy(status = ReminderStatus.OPEN)
+                            lifecycleScope.launch { dao.upsert(updated) }
+                            AlarmScheduler.schedule(applicationContext, updated)
+                        }
+                    },
+                    onToggleMissed = { reminderWithSchedules ->
+                        val reminder = reminderWithSchedules.reminder
+                        if (reminder.status != ReminderStatus.MISSED) {
+                            lifecycleScope.launch {
+                                AlarmScheduler.missAndAdvance(applicationContext, reminderWithSchedules)
+                            }
+                        } else {
+                            val updated = reminder.copy(status = ReminderStatus.OPEN)
                             lifecycleScope.launch { dao.upsert(updated) }
                             AlarmScheduler.schedule(applicationContext, updated)
                         }

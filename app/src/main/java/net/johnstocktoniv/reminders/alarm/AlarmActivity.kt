@@ -45,7 +45,6 @@ import net.johnstocktoniv.reminders.ui.theme.OnSuccessContainer
 import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 import net.johnstocktoniv.reminders.ui.theme.SnoozeContainer
 import net.johnstocktoniv.reminders.ui.theme.SuccessContainer
-import java.time.LocalDateTime
 
 class AlarmActivity : ComponentActivity() {
     private var vibrator: Vibrator? = null // gross lol
@@ -136,11 +135,11 @@ class AlarmActivity : ComponentActivity() {
         AlarmScheduler.completeAndAdvance(applicationContext, current)
     }
 
+    // Only re-arms the alarm SNOOZE_MINUTES from now — the reminder's own date/time (and
+    // therefore whether it's still shown as Overdue) is left untouched, since snoozing means
+    // "ring again shortly," not "this is now due later."
     private fun snooze() = withReminder { current ->
-        val snoozeAt = LocalDateTime.now().plusMinutes(2)
-        val updated = current.reminder.copy(date = snoozeAt.toLocalDate(), time = snoozeAt.toLocalTime())
-        DatabaseProvider.dao(applicationContext).upsert(updated)
-        AlarmScheduler.schedule(applicationContext, updated)
+        AlarmScheduler.snooze(applicationContext, current.reminder)
     }
 
     private fun withReminder(action: suspend (ReminderWithSchedules) -> Unit) {

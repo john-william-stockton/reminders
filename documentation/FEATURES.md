@@ -3,7 +3,6 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 ## Not yet implemented
 
-- Add a "Missed" reminder state so that they can be open/incomplete, closed/complete, missed/incomplete, and deleted
 - Streak tracking. For series reminders, keep track of the completion streak and include it in the `ReminderListItem`
   - Marking a reminder as complete will reset the streak back to zero if the streak was negative and will add 1 to the streak.
   - Marking a reminder as missed will reset the streak back to zero if the streak was positive and will subtract 1 from the streak
@@ -14,6 +13,14 @@ A snapshot of what's implemented today and what's still open. Update this alongs
 
 - **Reminders**
   - Create, edit, and delete reminders (title required; optional description)
+  - Each reminder has a status — **Open**, **Complete**, or **Missed**. Missed is a manual action
+    (only offered once a reminder is actually overdue, or to revert an already-Missed one back to
+    Open), distinct from the display-only "Overdue" flag below — an overdue reminder stays Open
+    until the user explicitly marks it Missed. Missed is treated as terminal/resolved (like
+    Complete) for tab and stacking purposes — see "List & navigation" below — even though it isn't
+    Complete either; marking a recurring reminder Missed advances its series (cancels its alarm,
+    spawns the next occurrence) exactly like completing it would, so a missed occurrence doesn't
+    block the next one
   - Every reminder is driven by one or more CRON schedules — no separate date/time input. A plain
     schedule (e.g. `0 9 * * 1-5`) repeats; appending a year (e.g. `30 9 25 12 * 2026`) pins it to a
     single instant instead, which is how a one-off reminder is expressed. A live "next occurrence"
@@ -25,8 +32,9 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     occurrence once its year has passed, so nothing spawns — same as completing today's one-time
     reminders used to behave
   - Un-completing a reminder re-arms its alarm
-  - Overdue reminders are visually flagged in the list, and the flag refreshes automatically
-    (checked every 30s) while the list stays on screen
+  - Overdue reminders are visually flagged in the list; the flag flips the instant a reminder
+    passes its due time while the list stays on screen, via a delay scheduled precisely to that
+    due instant rather than polling on some fixed interval
   - Editing a reminder that's genuinely part of a series (its schedule would still fire again
     after its own occurrence, and it's not already complete) prompts to apply the change to just
     this occurrence or the whole series. "Whole series" is an ordinary save. "This occurrence
@@ -35,26 +43,35 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     time, carrying the user's title/description edits — the series continues untouched
 
 - **List & navigation**
-  - Three tabs: **Today**, **Incomplete**, **Complete**
-  - The "Today" tab also surfaces still-incomplete reminders left over from earlier dates
-    (overdue), sorted above today's own reminders (oldest overdue first); an overdue reminder
-    that's already complete is not shown there
-  - Swipe right to delete, swipe left to mark complete
-  - Long-press a reminder to edit it
+  - Three tabs: **Today**, **Incomplete**, **Complete**. "Incomplete" is strictly Open reminders
+    (things still to do) — Missed doesn't appear there even though it isn't Complete either, since
+    it's a resolved/terminal status (see below); "Complete" is strictly Complete
+  - The "Today" tab also surfaces still-unresolved (Open or Missed) reminders left over from
+    earlier dates, sorted above today's own reminders (oldest first); an overdue reminder that's
+    already complete is not shown there
+  - Swipe left to mark complete (toggles: swiping an already-complete reminder reopens it).
+    Swipe right to mark Missed/un-Missed, the same toggle pattern — only enabled once a reminder
+    is actually overdue, or on an already-Missed one to reopen it; disabled otherwise rather than
+    swiping to a no-op
+  - Long-press a reminder to open it for editing, which is also where deleting it lives now (a
+    "Delete" button, gated behind an "Are you sure?" confirmation since a single tap doesn't have
+    the friction a swipe distance does)
   - On the Complete tab, the floating action button doubles as "Clear All" — a red-tinted trash
     icon that bulk-deletes completed reminders behind a confirmation dialog, hidden entirely when
     there's nothing to clear; on other tabs it's the usual add-reminder button
-  - In the "Today" tab, completed reminders default to a collapsed, overlapping card stack (each
-    one behind and peeking out from under the reminder above it, with a slight drop shadow to
-    reinforce the layering, and its description hidden to save space); tapping any completed
-    reminder toggles the stack between collapsed and fully expanded (descriptions reappear once
-    expanded)
+  - In the "Today" tab, resolved reminders (Complete *and* Missed — both terminal, dimmed the same
+    way) default to a collapsed, overlapping card stack (each one behind and peeking out from
+    under the reminder above it, with a slight drop shadow to reinforce the layering, and its
+    description hidden to save space); tapping any reminder toggles the stack between collapsed
+    and fully expanded (descriptions reappear once expanded)
 
 - **Alarms & notifications**
   - Full-screen alarm activity that shows over the lock screen and vibrates (no alarm sound, by
     design — accessibility choice for hearing-impaired users)
   - Alarm screen actions: Mark Complete or Snooze 2 minutes (no plain dismiss — one of the two
-    is required to silence the alarm)
+    is required to silence the alarm). Snoozing only re-arms the alarm 2 minutes out — it doesn't
+    touch the reminder's own date/time, so an overdue reminder stays Overdue through a snooze
+    instead of appearing freshly due later
   - Notification with a full-screen intent (auto-launches when locked) and heads-up fallback when
     unlocked
   - Alarms are rescheduled on app launch and after device reboot
@@ -77,20 +94,26 @@ A snapshot of what's implemented today and what's still open. Update this alongs
     - v2 → v3: adds the `reminder_schedules` table for recurring reminders
     - v3 → v4: backfills a pinned-year CRON schedule (from its own date/time) onto any reminder
       predating the always-CRON model, so nothing loses its due date
+    - v4 → v5: replaces the `complete: Boolean` column with `status` (Open/Complete/Missed)
   - Backup/restore: export all reminders (with their CRON schedules) to a YAML file via the system
     file picker, and restore from a previously exported file — a destructive action gated behind
     an "Are you sure?" confirmation, since it wipes and replaces the current database wholesale.
     Restored reminders keep their original ids so their alarms line up, and all alarms are
-    cancelled/re-armed around the restore
+    cancelled/re-armed around the restore. A backup also captures the scheduled-backup settings
+    below (enabled/CRON/destination folder) in an optional `scheduledBackup:` section, so restoring
+    one restores that configuration too — absent in backups made before this existed, and the
+    restored destination folder is only as good as whichever device/install still holds a valid
+    permission grant for it (restoring it elsewhere fails gracefully, same as any other backup
+    write failure, rather than silently re-granting access)
   - Scheduled backup: an opt-in, CRON-driven periodic export (default `0 */8 * * *`, editable) to
     a folder chosen once via the system folder picker. Each run writes a new timestamped
-    `reminders-backup-<yyyy-MM-dd'T'HHmmss>.yaml` snapshot (same format as manual export) and
-    prunes the folder down to the newest 7 — unlike manual export's single overwritten file, this
-    keeps real backup history. Uses exact alarms when permitted (same fallback as reminder alarms)
-    and self-reschedules on each run (a CRON schedule isn't a fixed interval `AlarmManager` can
-    repeat on its own); re-armed on boot and app launch alongside reminders. Posts a low-importance
-    notification confirming each run's success (with the saved filename) or failure (e.g. the
-    chosen folder became inaccessible)
+    `reminders-backup-<yyyy-MM-dd'T'HHmmss>.yaml` snapshot (same format as manual export, including
+    its own current settings) and prunes the folder down to the newest 7 — unlike manual export's
+    single overwritten file, this keeps real backup history. Uses exact alarms when permitted (same
+    fallback as reminder alarms) and self-reschedules on each run (a CRON schedule isn't a fixed
+    interval `AlarmManager` can repeat on its own); re-armed on boot and app launch alongside
+    reminders. Posts a low-importance notification confirming each run's success (with the saved
+    filename) or failure (e.g. the chosen folder became inaccessible)
 
 - **Testing**
   - Unit tests for CRON schedule parsing and next-occurrence computation, including the optional

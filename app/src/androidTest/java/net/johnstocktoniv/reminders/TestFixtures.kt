@@ -2,6 +2,7 @@ package net.johnstocktoniv.reminders
 
 import net.johnstocktoniv.reminders.database.Reminder
 import net.johnstocktoniv.reminders.database.ReminderSchedule
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import java.time.LocalDate
 import java.time.LocalTime
@@ -17,14 +18,14 @@ fun testReminder(
     description: String = "",
     date: LocalDate = LocalDate.now(),
     time: LocalTime? = null,
-    complete: Boolean = false,
+    status: ReminderStatus = ReminderStatus.OPEN,
 ): Reminder = Reminder(
     id = id,
     title = title,
     description = description,
     date = date,
     time = time,
-    complete = complete
+    status = status
 )
 
 fun testReminderWithSchedules(

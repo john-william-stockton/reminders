@@ -18,6 +18,7 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import net.johnstocktoniv.reminders.STABLE_FUTURE_CRON
 import net.johnstocktoniv.reminders.database.Reminder
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.testReminder
 import net.johnstocktoniv.reminders.testReminderWithSchedules
@@ -36,6 +37,7 @@ class RemindersScreenTest {
         onSaveReminder: suspend (Reminder, List<String>) -> Unit = { _, _ -> },
         onEditOccurrence: suspend (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
         onToggleComplete: (ReminderWithSchedules) -> Unit = {},
+        onToggleMissed: (ReminderWithSchedules) -> Unit = {},
         onDeleteReminder: (ReminderWithSchedules) -> Unit = {},
         onClearAll: (List<ReminderWithSchedules>) -> Unit = {},
         onExportBackup: () -> Unit = {},
@@ -48,6 +50,7 @@ class RemindersScreenTest {
                     onSaveReminder = onSaveReminder,
                     onEditOccurrence = onEditOccurrence,
                     onToggleComplete = onToggleComplete,
+                    onToggleMissed = onToggleMissed,
                     onDeleteReminder = onDeleteReminder,
                     onClearAll = onClearAll,
                     onExportBackup = onExportBackup,
@@ -81,7 +84,7 @@ class RemindersScreenTest {
             id = 1,
             title = "Overdue Complete Item",
             date = LocalDate.now().minusDays(3),
-            complete = true
+            status = ReminderStatus.COMPLETE
         )
         setScreen(reminders = listOf(overdueComplete).map { testReminderWithSchedules(it) })
 
@@ -104,8 +107,8 @@ class RemindersScreenTest {
     fun todayTabSortsIncompleteAboveComplete() {
         // Deliberately pass the complete item first so a naive "list order" read would get this
         // wrong if the stable sort broke.
-        val completeReminder = testReminder(id = 1, title = "Complete Item", date = LocalDate.now(), complete = true)
-        val incompleteReminder = testReminder(id = 2, title = "Incomplete Item", date = LocalDate.now(), complete = false)
+        val completeReminder = testReminder(id = 1, title = "Complete Item", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
+        val incompleteReminder = testReminder(id = 2, title = "Incomplete Item", date = LocalDate.now(), status = ReminderStatus.OPEN)
         setScreen(reminders = listOf(completeReminder, incompleteReminder).map { testReminderWithSchedules(it) })
 
         val incompleteTop = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot.top
@@ -117,8 +120,8 @@ class RemindersScreenTest {
     @Test
     fun todayTabCollapsesCompletedRemindersIntoOffsetStackByDefault() {
         val incomplete = testReminder(id = 1, title = "Incomplete", date = LocalDate.now())
-        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), complete = true)
-        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
         setScreen(reminders = listOf(incomplete, completeOne, completeTwo).map { testReminderWithSchedules(it) })
 
         val firstCompleteNode = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot
@@ -130,10 +133,27 @@ class RemindersScreenTest {
         }
     }
 
+    // Missed is a terminal status just like Complete — nothing left to do on it today — so it
+    // shares the same collapsed stack rather than sitting in the prominent open list.
+    @Test
+    fun todayTabCollapsesMissedRemindersIntoTheSameStackAsComplete() {
+        val missedOne = testReminder(id = 2, title = "Missed One", date = LocalDate.now(), status = ReminderStatus.MISSED)
+        val completeOne = testReminder(id = 3, title = "Complete One", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
+        setScreen(reminders = listOf(missedOne, completeOne).map { testReminderWithSchedules(it) })
+
+        val missedNode = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot
+        val completeTop = composeTestRule.onNodeWithTag("reminderItem:3").fetchSemanticsNode().boundsInRoot.top
+        val gap = completeTop - missedNode.top
+
+        assert(gap in 1f..(missedNode.height * 0.5f)) {
+            "expected Missed and Complete reminders to share the same collapsed stack, gap was $gap (item height ${missedNode.height})"
+        }
+    }
+
     @Test
     fun tappingCompletedReminderExpandsThenCollapsesTheStack() {
-        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), complete = true)
-        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
         setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
 
         val firstCompleteNode = composeTestRule.onNodeWithTag("reminderItem:2").fetchSemanticsNode().boundsInRoot
@@ -158,8 +178,8 @@ class RemindersScreenTest {
 
     @Test
     fun completeTabDoesNotStackCompletedReminders() {
-        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), complete = true)
-        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        val completeOne = testReminder(id = 2, title = "Complete One", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
         setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
 
         composeTestRule.onNodeWithText("Complete").performClick()
@@ -180,9 +200,9 @@ class RemindersScreenTest {
             title = "Complete One",
             description = "Some description text",
             date = LocalDate.now(),
-            complete = true
+            status = ReminderStatus.COMPLETE
         )
-        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), complete = true)
+        val completeTwo = testReminder(id = 3, title = "Complete Two", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
         setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
 
         composeTestRule.onNodeWithText("Some description text").assertDoesNotExist()
@@ -196,7 +216,7 @@ class RemindersScreenTest {
     fun incompleteTabShowsAllIncompleteRegardlessOfDate() {
         val incompleteToday = testReminder(id = 1, title = "Incomplete Today", date = LocalDate.now())
         val incompleteFuture = testReminder(id = 2, title = "Incomplete Future", date = LocalDate.now().plusDays(5))
-        val completeToday = testReminder(id = 3, title = "Complete Today", date = LocalDate.now(), complete = true)
+        val completeToday = testReminder(id = 3, title = "Complete Today", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
         setScreen(reminders = listOf(incompleteToday, incompleteFuture, completeToday).map { testReminderWithSchedules(it) })
 
         composeTestRule.onNodeWithText("Incomplete").performClick()
@@ -206,10 +226,24 @@ class RemindersScreenTest {
         composeTestRule.onNodeWithText("Complete Today").assertDoesNotExist()
     }
 
+    // Missed is a resolved/terminal status (see the Today tab's collapsed stack) — it doesn't
+    // belong in "still need to do," even though it isn't Complete either.
+    @Test
+    fun incompleteTabExcludesMissedReminders() {
+        val open = testReminder(id = 1, title = "Open One", date = LocalDate.now())
+        val missed = testReminder(id = 2, title = "Missed One", date = LocalDate.now(), status = ReminderStatus.MISSED)
+        setScreen(reminders = listOf(open, missed).map { testReminderWithSchedules(it) })
+
+        composeTestRule.onNodeWithText("Incomplete").performClick()
+
+        composeTestRule.onNodeWithText("Open One").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Missed One").assertDoesNotExist()
+    }
+
     @Test
     fun completeTabShowsAllCompleteRegardlessOfDate() {
-        val completeToday = testReminder(id = 1, title = "Complete Today", date = LocalDate.now(), complete = true)
-        val completeFuture = testReminder(id = 2, title = "Complete Future", date = LocalDate.now().plusDays(5), complete = true)
+        val completeToday = testReminder(id = 1, title = "Complete Today", date = LocalDate.now(), status = ReminderStatus.COMPLETE)
+        val completeFuture = testReminder(id = 2, title = "Complete Future", date = LocalDate.now().plusDays(5), status = ReminderStatus.COMPLETE)
         val incompleteToday = testReminder(id = 3, title = "Incomplete Today", date = LocalDate.now())
         setScreen(reminders = listOf(completeToday, completeFuture, incompleteToday).map { testReminderWithSchedules(it) })
 
@@ -232,8 +266,8 @@ class RemindersScreenTest {
 
     @Test
     fun clearAllFabShownAndTappingItShowsConfirmationDialogWithCount() {
-        val completeOne = testReminder(id = 1, title = "Complete One", complete = true)
-        val completeTwo = testReminder(id = 2, title = "Complete Two", complete = true)
+        val completeOne = testReminder(id = 1, title = "Complete One", status = ReminderStatus.COMPLETE)
+        val completeTwo = testReminder(id = 2, title = "Complete Two", status = ReminderStatus.COMPLETE)
         setScreen(reminders = listOf(completeOne, completeTwo).map { testReminderWithSchedules(it) })
 
         composeTestRule.onNodeWithText("Complete").performClick()
@@ -246,7 +280,7 @@ class RemindersScreenTest {
 
     @Test
     fun addItemFabReplacedByClearAllOnCompleteTab() {
-        val completeOne = testReminder(id = 1, title = "Complete One", complete = true)
+        val completeOne = testReminder(id = 1, title = "Complete One", status = ReminderStatus.COMPLETE)
         setScreen(reminders = listOf(completeOne).map { testReminderWithSchedules(it) })
 
         composeTestRule.onNodeWithText("Complete").performClick()
@@ -258,8 +292,8 @@ class RemindersScreenTest {
     @Test
     fun confirmingClearAllInvokesOnClearAllWithVisibleCompletedRemindersAndClosesDialog() {
         var cleared: List<ReminderWithSchedules>? = null
-        val completeOne = testReminderWithSchedules(testReminder(id = 1, title = "Complete One", complete = true))
-        val completeTwo = testReminderWithSchedules(testReminder(id = 2, title = "Complete Two", complete = true))
+        val completeOne = testReminderWithSchedules(testReminder(id = 1, title = "Complete One", status = ReminderStatus.COMPLETE))
+        val completeTwo = testReminderWithSchedules(testReminder(id = 2, title = "Complete Two", status = ReminderStatus.COMPLETE))
         setScreen(reminders = listOf(completeOne, completeTwo), onClearAll = { cleared = it })
 
         composeTestRule.onNodeWithText("Complete").performClick()
@@ -273,7 +307,7 @@ class RemindersScreenTest {
     @Test
     fun cancelingClearAllConfirmationClosesDialogWithoutInvokingCallback() {
         var clearAllCalled = false
-        val completeOne = testReminderWithSchedules(testReminder(id = 1, title = "Complete One", complete = true))
+        val completeOne = testReminderWithSchedules(testReminder(id = 1, title = "Complete One", status = ReminderStatus.COMPLETE))
         setScreen(reminders = listOf(completeOne), onClearAll = { clearAllCalled = true })
 
         composeTestRule.onNodeWithText("Complete").performClick()
@@ -410,17 +444,40 @@ class RemindersScreenTest {
     }
 
     @Test
-    fun swipingStartToEndInvokesOnDeleteReminderForThatReminder() {
-        var deleted: ReminderWithSchedules? = null
-        val reminder = testReminderWithSchedules(testReminder(id = 9, title = "Swipe Me Too", date = LocalDate.now()))
-        setScreen(reminders = listOf(reminder), onDeleteReminder = { deleted = it })
+    fun swipingStartToEndOnOverdueReminderInvokesOnToggleMissedForThatReminder() {
+        var toggled: ReminderWithSchedules? = null
+        val reminder = testReminderWithSchedules(
+            testReminder(id = 9, title = "Swipe Me Too", date = LocalDate.now().minusDays(3))
+        )
+        setScreen(reminders = listOf(reminder), onToggleMissed = { toggled = it })
 
         composeTestRule.onNodeWithTag("reminderItem:9").performTouchInput {
             swipeRight(startX = width * 0.05f, endX = width * 0.9f)
         }
         composeTestRule.waitForIdle()
 
-        assert(deleted?.reminder?.id == 9L) { "was $deleted" }
+        assert(toggled?.reminder?.id == 9L) { "was $toggled" }
+    }
+
+    // Marking something missed only makes sense once it's actually overdue (or to un-miss an
+    // already-Missed one) — a not-yet-due OPEN reminder has that swipe direction disabled outright.
+    @Test
+    fun swipingStartToEndOnNotYetDueReminderDoesNotInvokeOnToggleMissed() {
+        var toggleMissedCalled = false
+        val reminder = testReminderWithSchedules(
+            testReminder(id = 10, title = "Not Due Yet", date = LocalDate.now().plusDays(3))
+        )
+        setScreen(reminders = listOf(reminder), onToggleMissed = { toggleMissedCalled = true })
+
+        // A reminder 3 days out isn't due "Today" (the default tab); switch to Incomplete, which
+        // shows it regardless of date.
+        composeTestRule.onNodeWithText("Incomplete").performClick()
+        composeTestRule.onNodeWithTag("reminderItem:10").performTouchInput {
+            swipeRight(startX = width * 0.05f, endX = width * 0.9f)
+        }
+        composeTestRule.waitForIdle()
+
+        assert(!toggleMissedCalled) { "expected onToggleMissed not to be invoked for a not-yet-due reminder" }
     }
 
     @Test

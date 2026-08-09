@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,35 +40,45 @@ import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.alarm.isRecurring
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.database.dateFormatter
 import net.johnstocktoniv.reminders.database.timeFormatter
 import net.johnstocktoniv.reminders.ui.theme.OnSuccessContainer
 import net.johnstocktoniv.reminders.ui.theme.SuccessContainer
+import java.time.Duration
 import java.time.LocalDateTime
-import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ReminderListItem(
     reminderWithSchedules: ReminderWithSchedules,
     onComplete: () -> Unit,
-    onDelete: () -> Unit,
+    onToggleMissed: () -> Unit,
     modifier: Modifier,
     showDescription: Boolean = true,
 ) {
     val reminder = reminderWithSchedules.reminder
     // Composition only runs again when this item's own state changes, but "is this reminder
     // overdue" also depends on wall-clock time passing with nothing else about the item
-    // changing — so without this ticker, an item shown before its due time never flips to
-    // "Overdue" while the screen just sits open.
-    val now by produceState(initialValue = LocalDateTime.now()) {
-        while (true) {
-            delay(30_000.milliseconds)
-            value = LocalDateTime.now()
+    // changing — so without this, an item shown before its due time never flips to "Overdue"
+    // while the screen just sits open. Overdue only ever flips false -> true, at exactly the due
+    // instant, and never flips back on its own — so rather than polling on some fixed interval
+    // (which used to make the label lag up to 30s behind the real due time), this schedules a
+    // single delay precisely until that instant.
+    val isOverdue by produceState(
+        initialValue = reminder.status == ReminderStatus.OPEN &&
+            reminder.date.atTime(reminder.effectiveTime()).isBefore(LocalDateTime.now()),
+        key1 = reminder
+    ) {
+        if (reminder.status != ReminderStatus.OPEN) return@produceState
+        val dueAt = reminder.date.atTime(reminder.effectiveTime())
+        val remainingMillis = Duration.between(LocalDateTime.now(), dueAt).toMillis()
+        if (remainingMillis > 0) {
+            delay(remainingMillis)
+            value = true
         }
     }
-    val isOverdue = !reminder.complete &&
-        reminder.date.atTime(reminder.effectiveTime()).isBefore(now)
+    val isMissed = reminder.status == ReminderStatus.MISSED
     // A one-off (pinned-year) reminder has schedules too — just none producing a match beyond
     // its own instant — so this checks for an actual future occurrence rather than merely
     // "has any schedule" to avoid showing a repeat icon on something that will only ever fire once.
@@ -86,6 +96,9 @@ fun ReminderListItem(
 
     SwipeToDismissBox(
         state = swipeToDismissBoxState,
+        // Marking something missed only makes sense once it's actually overdue (or to un-miss an
+        // already-Missed reminder) — disabled otherwise, rather than swiping to a no-op.
+        enableDismissFromStartToEnd = isOverdue || isMissed,
         modifier = modifier.fillMaxWidth()
                            .padding(horizontal = 9.dp, vertical = 4.dp)
                            .clip(RoundedCornerShape(16.dp))
@@ -93,7 +106,10 @@ fun ReminderListItem(
                            .onSizeChanged { itemWidthPx = it.width },
         onDismiss = { direction ->
             when (direction) {
-                SwipeToDismissBoxValue.StartToEnd -> onDelete()
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    onToggleMissed()
+                    scope.launch { swipeToDismissBoxState.snapTo(SwipeToDismissBoxValue.Settled) }
+                }
                 SwipeToDismissBoxValue.EndToStart -> {
                     onComplete()
                     scope.launch { swipeToDismissBoxState.snapTo(SwipeToDismissBoxValue.Settled) }
@@ -116,8 +132,8 @@ fun ReminderListItem(
             when (revealedDirection) {
                 SwipeToDismissBoxValue.StartToEnd -> {
                     Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Remove item",
+                        imageVector = Icons.Default.EventBusy,
+                        contentDescription = "Mark Missed",
                         modifier = Modifier
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.errorContainer)
@@ -145,17 +161,19 @@ fun ReminderListItem(
         Column(
             modifier = Modifier.fillMaxWidth()
                                .padding(horizontal = 14.dp, vertical = 9.dp)
-                               .alpha(if (reminder.complete) 0.25f else 1.0f)
+                               // Missed dims the same as Complete — both are terminal/resolved,
+                               // sharing the Today tab's collapsed stack (see RemindersScreen).
+                               .alpha(if (reminder.status == ReminderStatus.OPEN) 1.0f else 0.25f)
         ) {
-            if (isOverdue) {
+            if (isMissed || isOverdue) {
                 Text(
-                    "Overdue",
+                    if (isMissed) "Missed" else "Overdue",
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelMedium
                 )
             }
-            val dateTimeColor = if (isOverdue) MaterialTheme.colorScheme.error else Color.Unspecified
+            val dateTimeColor = if (isMissed || isOverdue) MaterialTheme.colorScheme.error else Color.Unspecified
             val dateTimeText = reminder.date.format(dateFormatter) +
                 (reminder.time?.let { " at ${it.format(timeFormatter)}" } ?: "")
             Row(verticalAlignment = Alignment.CenterVertically) {

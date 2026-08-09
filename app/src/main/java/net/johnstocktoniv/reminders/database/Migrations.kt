@@ -84,3 +84,14 @@ fun migration3To4(context: Context) = Migration(3, 4) { connection: SQLiteConnec
         }
     }
 }
+
+// Replaces the old complete: Boolean with a status: TEXT column (OPEN/COMPLETE/MISSED — see
+// ReminderStatus) so a reminder can be explicitly marked Missed, not just complete/incomplete.
+// SQLite's ALTER TABLE can't retype/drop a column directly pre-3.35, but the bundled driver here
+// is recent enough to support DROP COLUMN, so this adds+backfills+drops in one pass rather than
+// doing a full table rebuild.
+val MIGRATION_4_5 = Migration(4, 5) { connection: SQLiteConnection ->
+    connection.execSQL("ALTER TABLE reminders ADD COLUMN status TEXT NOT NULL DEFAULT 'OPEN'")
+    connection.execSQL("UPDATE reminders SET status = CASE WHEN complete = 1 THEN 'COMPLETE' ELSE 'OPEN' END")
+    connection.execSQL("ALTER TABLE reminders DROP COLUMN complete")
+}

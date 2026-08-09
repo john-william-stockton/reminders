@@ -54,6 +54,7 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import net.johnstocktoniv.reminders.R
 import net.johnstocktoniv.reminders.database.Reminder
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import java.time.LocalDate
 
@@ -87,6 +88,7 @@ fun RemindersScreen(
     onSaveReminder: suspend (Reminder, List<String>) -> Unit,
     onEditOccurrence: suspend (ReminderWithSchedules, Reminder) -> Unit = { _, _ -> },
     onToggleComplete: (ReminderWithSchedules) -> Unit,
+    onToggleMissed: (ReminderWithSchedules) -> Unit = {},
     onDeleteReminder: (ReminderWithSchedules) -> Unit,
     onClearAll: (List<ReminderWithSchedules>) -> Unit,
     onExportBackup: () -> Unit = {},
@@ -110,16 +112,19 @@ fun RemindersScreen(
 
     val editingReminder = (reminderDialogTarget as? ReminderDialogTarget.Edit)?.reminder
     val visibleReminders = when (selectedTab) {
-        // Reminders due today, plus anything still-incomplete from an earlier date (overdue
-        // reminders that are already complete have nothing left to surface here — they stay
-        // visible only in the Complete tab). Sorted incomplete-before-complete, then oldest-date
-        // first within each group; the stable sort still falls back to `reminders`' own DB order
-        // (date then time) to order same-day items by time.
+        // Reminders due today, plus anything still-incomplete (OPEN or MISSED) from an earlier
+        // date (overdue reminders that are already complete have nothing left to surface here —
+        // they stay visible only in the Complete tab). Sorted open-before-resolved, then
+        // oldest-date first within each group; the stable sort still falls back to `reminders`'
+        // own DB order (date then time) to order same-day items by time.
         ReminderTab.TODAY -> reminders.filter {
-            it.reminder.date == LocalDate.now() || (it.reminder.date < LocalDate.now() && !it.reminder.complete)
-        }.sortedWith(compareBy({ it.reminder.complete }, { it.reminder.date }))
-        ReminderTab.INCOMPLETE -> reminders.filter { !it.reminder.complete }
-        ReminderTab.COMPLETE -> reminders.filter { it.reminder.complete }
+            it.reminder.date == LocalDate.now() ||
+                (it.reminder.date < LocalDate.now() && it.reminder.status != ReminderStatus.COMPLETE)
+        }.sortedWith(compareBy({ it.reminder.status != ReminderStatus.OPEN }, { it.reminder.date }))
+        // Strictly "still need to do" — Missed is a resolved/terminal status (see Today tab's
+        // stack above), not something to work through here even though it's not Complete either.
+        ReminderTab.INCOMPLETE -> reminders.filter { it.reminder.status == ReminderStatus.OPEN }
+        ReminderTab.COMPLETE -> reminders.filter { it.reminder.status == ReminderStatus.COMPLETE }
     }
 
     if (showClearAllConfirm) {
@@ -159,6 +164,10 @@ fun RemindersScreen(
                 onEditOccurrence(original, edited)
                 reminderDialogTarget = null
             }
+        },
+        onDelete = {
+            editingReminder?.let { onDeleteReminder(it) }
+            reminderDialogTarget = null
         }
     )
     BackupDialog(
@@ -249,23 +258,27 @@ fun RemindersScreen(
                 contentPadding = PaddingValues(top = 8.dp)
             ) {
                 if (selectedTab == ReminderTab.TODAY) {
-                    val incompleteToday = visibleReminders.filter { !it.reminder.complete }
-                    val completedToday = visibleReminders.filter { it.reminder.complete }
-                    items(incompleteToday, key = { it.reminder.id }) { reminderWithSchedules ->
+                    // Missed joins Complete in the collapsed stack, not the prominent open list —
+                    // it's a terminal status same as Complete (nothing left to do on it today);
+                    // what matters for staying accountable is the next spawned occurrence, which
+                    // shows up as its own Open item, not the missed one itself.
+                    val openToday = visibleReminders.filter { it.reminder.status == ReminderStatus.OPEN }
+                    val resolvedToday = visibleReminders.filter { it.reminder.status != ReminderStatus.OPEN }
+                    items(openToday, key = { it.reminder.id }) { reminderWithSchedules ->
                         ReminderRow(
                             reminderWithSchedules,
                             onComplete = { onToggleComplete(reminderWithSchedules) },
-                            onDelete = { onDeleteReminder(reminderWithSchedules) },
+                            onToggleMissed = { onToggleMissed(reminderWithSchedules) },
                             onLongPress = { reminderDialogTarget = ReminderDialogTarget.Edit(reminderWithSchedules) }
                         )
                     }
-                    if (completedToday.isNotEmpty()) {
-                        item(key = "completed-stack") {
+                    if (resolvedToday.isNotEmpty()) {
+                        item(key = "resolved-stack") {
                             CompletedReminderStack(
-                                reminders = completedToday,
+                                reminders = resolvedToday,
                                 collapsed = completedCollapsed,
                                 onComplete = onToggleComplete,
-                                onDelete = onDeleteReminder,
+                                onToggleMissed = onToggleMissed,
                                 onEdit = { reminderDialogTarget = ReminderDialogTarget.Edit(it) },
                                 onToggleCollapsed = { completedCollapsed = !completedCollapsed }
                             )
@@ -276,7 +289,7 @@ fun RemindersScreen(
                         ReminderRow(
                             reminderWithSchedules,
                             onComplete = { onToggleComplete(reminderWithSchedules) },
-                            onDelete = { onDeleteReminder(reminderWithSchedules) },
+                            onToggleMissed = { onToggleMissed(reminderWithSchedules) },
                             onLongPress = { reminderDialogTarget = ReminderDialogTarget.Edit(reminderWithSchedules) }
                         )
                     }
@@ -290,7 +303,7 @@ fun RemindersScreen(
 private fun ReminderRow(
     reminderWithSchedules: ReminderWithSchedules,
     onComplete: () -> Unit,
-    onDelete: () -> Unit,
+    onToggleMissed: () -> Unit,
     onLongPress: () -> Unit,
     onTap: (() -> Unit)? = null,
     showDescription: Boolean = true,
@@ -307,7 +320,7 @@ private fun ReminderRow(
     ReminderListItem(
         reminderWithSchedules,
         onComplete = onComplete,
-        onDelete = onDelete,
+        onToggleMissed = onToggleMissed,
         showDescription = showDescription,
         modifier = modifier
             .testTag("reminderItem:${reminderWithSchedules.reminder.id}")
@@ -320,16 +333,17 @@ private fun ReminderRow(
     )
 }
 
-// Today tab only. Collapsed: completed reminders render as a card stack, each one behind and
-// peeking CompletedStackOffset lower than the one above (only the frontmost is fully visible/
-// interactive) so they take up minimal space. Expanded: they render as a normal vertical list,
-// same as any other tab. Tapping any completed reminder toggles between the two.
+// Today tab only. Collapsed: resolved reminders (Complete or Missed — both terminal, nothing left
+// to do on them today) render as a card stack, each one behind and peeking CompletedStackOffset
+// lower than the one above (only the frontmost is fully visible/interactive) so they take up
+// minimal space. Expanded: they render as a normal vertical list, same as any other tab. Tapping
+// any reminder in the stack toggles between the two.
 @Composable
 private fun CompletedReminderStack(
     reminders: List<ReminderWithSchedules>,
     collapsed: Boolean,
     onComplete: (ReminderWithSchedules) -> Unit,
-    onDelete: (ReminderWithSchedules) -> Unit,
+    onToggleMissed: (ReminderWithSchedules) -> Unit,
     onEdit: (ReminderWithSchedules) -> Unit,
     onToggleCollapsed: () -> Unit,
 ) {
@@ -339,7 +353,7 @@ private fun CompletedReminderStack(
                 ReminderRow(
                     reminderWithSchedules,
                     onComplete = { onComplete(reminderWithSchedules) },
-                    onDelete = { onDelete(reminderWithSchedules) },
+                    onToggleMissed = { onToggleMissed(reminderWithSchedules) },
                     onLongPress = { onEdit(reminderWithSchedules) },
                     onTap = onToggleCollapsed
                 )
@@ -354,7 +368,7 @@ private fun CompletedReminderStack(
                 ReminderRow(
                     reminderWithSchedules,
                     onComplete = { onComplete(reminderWithSchedules) },
-                    onDelete = { onDelete(reminderWithSchedules) },
+                    onToggleMissed = { onToggleMissed(reminderWithSchedules) },
                     onLongPress = { onEdit(reminderWithSchedules) },
                     onTap = onToggleCollapsed,
                     showDescription = false,

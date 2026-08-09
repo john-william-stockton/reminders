@@ -11,7 +11,9 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.first
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.Reminder
+import net.johnstocktoniv.reminders.database.ReminderStatus
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -22,6 +24,7 @@ object AlarmScheduler {
     const val EXTRA_REMINDER_ID = "reminder_id"
     const val EXTRA_TITLE = "title"
     const val EXTRA_DESCRIPTION = "description"
+    const val SNOOZE_MINUTES = 2L
 
     fun extrasFrom(intent: Intent): AlarmExtras = AlarmExtras(
         reminderId = intent.getLongExtra(EXTRA_REMINDER_ID, -1L),
@@ -48,9 +51,18 @@ object AlarmScheduler {
     // Reminder row for the next occurrence (copying the same schedules onto it) and schedules its
     // alarm. Shared by both completion entry points (the alarm screen and the main list) so the
     // spawn behavior can't drift between them.
-    suspend fun completeAndAdvance(context: Context, current: ReminderWithSchedules) {
+    suspend fun completeAndAdvance(context: Context, current: ReminderWithSchedules) =
+        advanceTo(context, current, ReminderStatus.COMPLETE)
+
+    // Marks the current occurrence missed (a manual action distinct from the display-only
+    // "Overdue" flag — see ReminderStatus) and advances the series exactly like completing it
+    // would: a missed occurrence of a recurring reminder shouldn't block tomorrow's.
+    suspend fun missAndAdvance(context: Context, current: ReminderWithSchedules) =
+        advanceTo(context, current, ReminderStatus.MISSED)
+
+    private suspend fun advanceTo(context: Context, current: ReminderWithSchedules, status: ReminderStatus) {
         val dao = DatabaseProvider.dao(context)
-        dao.upsert(current.reminder.copy(complete = true))
+        dao.upsert(current.reminder.copy(status = status))
         cancel(context, current.reminder.id)
         spawnNextOccurrence(context, current)
     }
@@ -104,7 +116,7 @@ object AlarmScheduler {
     fun schedule(context: Context, reminder: Reminder) {
         cancel(context, reminder.id)
 
-        if (reminder.complete) return
+        if (reminder.status != ReminderStatus.OPEN) return
         val time = reminder.effectiveTime()
 
         val triggerMillis = reminder.date.atTime(time)
@@ -113,6 +125,21 @@ object AlarmScheduler {
             .toEpochMilli()
         if (triggerMillis <= System.currentTimeMillis()) return
 
+        armAlarm(context, reminder, triggerMillis)
+    }
+
+    // Re-arms the alarm SNOOZE_MINUTES from now without touching the reminder row itself — its
+    // date/time (and therefore whether it's still shown as Overdue) stays exactly as it was.
+    // Snoozing is purely "ring again shortly", not "this is now due later."
+    fun snooze(context: Context, reminder: Reminder) {
+        cancel(context, reminder.id)
+        if (reminder.status != ReminderStatus.OPEN) return
+
+        val triggerMillis = System.currentTimeMillis() + Duration.ofMinutes(SNOOZE_MINUTES).toMillis()
+        armAlarm(context, reminder, triggerMillis)
+    }
+
+    private fun armAlarm(context: Context, reminder: Reminder, triggerMillis: Long) {
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val pendingIntent = pendingIntent(context, reminder.id) {
             putExtra(EXTRA_REMINDER_ID, reminder.id)

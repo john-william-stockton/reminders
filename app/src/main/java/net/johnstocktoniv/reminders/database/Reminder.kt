@@ -21,6 +21,12 @@ val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 fun parseDateOrNull(input: String): LocalDate? = runCatching { LocalDate.parse(input, dateFormatter) }.getOrNull()
 fun parseTimeOrNull(input: String): LocalTime? = runCatching { LocalTime.parse(input, timeFormatter) }.getOrNull()
 
+// OPEN and MISSED are both "incomplete" in the everyday sense (they still need action, or at
+// least acknowledgment), but MISSED is a distinct, explicitly-acknowledged state a user reaches
+// via a manual "mark missed" action — not something the app infers on its own the way the
+// display-only "Overdue" label already does for a still-OPEN, past-due reminder.
+enum class ReminderStatus { OPEN, COMPLETE, MISSED }
+
 @Entity(tableName = "reminders")
 data class Reminder(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -28,7 +34,7 @@ data class Reminder(
     val date: LocalDate = LocalDate.now(),
     val description: String = "",
     val time: LocalTime? = null,
-    val complete: Boolean = false
+    val status: ReminderStatus = ReminderStatus.OPEN
 ) {
     // date/time are always derived from a CRON schedule's computed next occurrence now (see
     // ReminderDialog/CronSchedule.kt), so `time` is never actually null for a reminder saved
@@ -63,12 +69,13 @@ interface ReminderDao {
     @Delete
     suspend fun delete(reminder: Reminder)
 
-    // Used only to guard against completeAndAdvance() spawning a second copy of a reminder it
-    // already spawned (e.g. complete -> incomplete -> complete on the same recurring reminder).
-    // Not used to block manual creation through the UI, which should still allow duplicates.
+    // Used only to guard against completeAndAdvance()/missAndAdvance() spawning a second copy of
+    // a reminder they already spawned (e.g. complete -> reopen -> complete again on the same
+    // recurring reminder). Not used to block manual creation through the UI, which should still
+    // allow duplicates.
     @Query(
         "SELECT * FROM reminders WHERE title = :title AND description = :description " +
-            "AND date = :date AND time IS :time AND complete = 0 LIMIT 1"
+            "AND date = :date AND time IS :time AND status = 'OPEN' LIMIT 1"
     )
     suspend fun findDuplicate(title: String, description: String, date: LocalDate, time: LocalTime?): Reminder?
 
