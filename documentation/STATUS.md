@@ -74,7 +74,9 @@ defects not yet fixed, and `planned-features.md` for features not yet implemente
   - Alarm screen actions: Mark Complete or Snooze 2 minutes (no plain dismiss — one of the two
     is required to silence the alarm). Snoozing only re-arms the alarm 2 minutes out — it doesn't
     touch the reminder's own date/time, so an overdue reminder stays Overdue through a snooze
-    instead of appearing freshly due later
+    instead of appearing freshly due later. A long-press on the Snooze button (instead of a plain
+    tap) opens a one-shot duration picker (1–180 minutes) to override that default for just this
+    alarm — nothing is persisted, so the next alarm reverts to the 2-minute default
   - Notification with a full-screen intent (auto-launches when locked) and heads-up fallback when
     unlocked
   - Alarms are rescheduled on app launch and after device reboot

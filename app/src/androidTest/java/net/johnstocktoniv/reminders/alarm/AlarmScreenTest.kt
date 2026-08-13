@@ -4,9 +4,13 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import net.johnstocktoniv.reminders.ui.theme.RemindersTheme
 import org.junit.Rule
 import org.junit.Test
@@ -19,7 +23,7 @@ class AlarmScreenTest {
         title: String = "Take medicine",
         description: String = "",
         onComplete: () -> Unit = {},
-        onSnooze: () -> Unit = {},
+        onSnooze: (Long) -> Unit = {},
     ) {
         composeTestRule.setContent {
             RemindersTheme {
@@ -64,13 +68,39 @@ class AlarmScreenTest {
     @Test
     fun tappingSnoozeInvokesOnSnoozeOnly() {
         var completeCalled = false
-        var snoozeCalled = false
-        setScreen(onComplete = { completeCalled = true }, onSnooze = { snoozeCalled = true })
+        var snoozeMinutes: Long? = null
+        setScreen(onComplete = { completeCalled = true }, onSnooze = { snoozeMinutes = it })
 
         composeTestRule.onNodeWithText("Snooze 2 minutes").performClick()
 
-        assert(snoozeCalled) { "expected onSnooze to be invoked" }
+        assert(snoozeMinutes == AlarmScheduler.SNOOZE_MINUTES) {
+            "expected onSnooze to be invoked with the default duration, got $snoozeMinutes"
+        }
         assert(!completeCalled) { "expected onComplete not to be invoked" }
+    }
+
+    @Test
+    fun longPressingSnoozeOpensDurationDialogAndConfirmingInvokesOnSnoozeWithCustomValue() {
+        var snoozeMinutes: Long? = null
+        setScreen(onSnooze = { snoozeMinutes = it })
+
+        composeTestRule.onNodeWithText("Snooze 2 minutes").performTouchInput { longClick() }
+        composeTestRule.onNodeWithTag("snoozeMinutesField").performTextClearance()
+        composeTestRule.onNodeWithTag("snoozeMinutesField").performTextInput("15")
+        composeTestRule.onNodeWithTag("confirmSnoozeDurationButton").performClick()
+
+        assert(snoozeMinutes == 15L) { "expected onSnooze to be invoked with the custom duration, got $snoozeMinutes" }
+    }
+
+    @Test
+    fun cancelingDurationDialogDoesNotInvokeOnSnooze() {
+        var snoozeCalled = false
+        setScreen(onSnooze = { snoozeCalled = true })
+
+        composeTestRule.onNodeWithText("Snooze 2 minutes").performTouchInput { longClick() }
+        composeTestRule.onNodeWithText("Cancel").performClick()
+
+        assert(!snoozeCalled) { "expected onSnooze not to be invoked after canceling" }
     }
 
     @Test

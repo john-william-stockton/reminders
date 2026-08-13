@@ -146,14 +146,16 @@ object AlarmScheduler {
         armAlarm(context, reminder, triggerMillis)
     }
 
-    // Re-arms the alarm SNOOZE_MINUTES from now without touching the reminder row itself — its
+    // Re-arms the alarm `minutes` from now without touching the reminder row itself — its
     // date/time (and therefore whether it's still shown as Overdue) stays exactly as it was.
-    // Snoozing is purely "ring again shortly", not "this is now due later."
-    fun snooze(context: Context, reminder: Reminder) {
+    // Snoozing is purely "ring again shortly", not "this is now due later." `minutes` defaults to
+    // SNOOZE_MINUTES but callers can pass a one-off override (see AlarmScreen's long-press) that
+    // isn't persisted anywhere — it only applies to this single snooze.
+    fun snooze(context: Context, reminder: Reminder, minutes: Long = SNOOZE_MINUTES) {
         cancel(context, reminder.id)
         if (reminder.status != ReminderStatus.OPEN) return
 
-        val triggerMillis = System.currentTimeMillis() + Duration.ofMinutes(SNOOZE_MINUTES).toMillis()
+        val triggerMillis = System.currentTimeMillis() + Duration.ofMinutes(minutes).toMillis()
         armAlarm(context, reminder, triggerMillis)
     }
 

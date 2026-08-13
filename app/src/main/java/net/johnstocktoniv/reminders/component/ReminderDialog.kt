@@ -208,7 +208,7 @@ fun ReminderDialog(
                         TextField(
                             value = value,
                             onValueChange = { scheduleInputs[index] = it },
-                            label = { Text("e.g. 0 9 * * 1-5, or 30 9 25 12 * 2026 for a one-off") },
+                            label = { Text("Min Hour DoM Month DoW (Y)") },
                             isError = showErrors && !scheduleValid[index],
                             supportingText = {
                                 if (showErrors && !scheduleValid[index]) Text("Not a valid CRON expression")

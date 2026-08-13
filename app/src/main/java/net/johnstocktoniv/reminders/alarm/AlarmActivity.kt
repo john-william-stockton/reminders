@@ -12,7 +12,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import net.johnstocktoniv.reminders.component.SnoozeDurationDialog
 import net.johnstocktoniv.reminders.database.DatabaseProvider
 import net.johnstocktoniv.reminders.database.ReminderWithSchedules
 import net.johnstocktoniv.reminders.ui.theme.OnSnoozeContainer
@@ -73,7 +77,7 @@ class AlarmActivity : ComponentActivity() {
                     title = extras.title.ifBlank { "Reminder" },
                     description = extras.description,
                     onComplete = { complete() },
-                    onSnooze = { snooze() }
+                    onSnooze = { minutes -> snooze(minutes) }
                 )
             }
         }
@@ -135,11 +139,12 @@ class AlarmActivity : ComponentActivity() {
         AlarmScheduler.completeAndAdvance(applicationContext, current)
     }
 
-    // Only re-arms the alarm SNOOZE_MINUTES from now — the reminder's own date/time (and
-    // therefore whether it's still shown as Overdue) is left untouched, since snoozing means
-    // "ring again shortly," not "this is now due later."
-    private fun snooze() = withReminder { current ->
-        AlarmScheduler.snooze(applicationContext, current.reminder)
+    // Only re-arms the alarm `minutes` from now — the reminder's own date/time (and therefore
+    // whether it's still shown as Overdue) is left untouched, since snoozing means "ring again
+    // shortly," not "this is now due later." `minutes` defaults to AlarmScheduler.SNOOZE_MINUTES
+    // for a plain tap; a long-press on the button lets the user override it for just this alarm.
+    private fun snooze(minutes: Long = AlarmScheduler.SNOOZE_MINUTES) = withReminder { current ->
+        AlarmScheduler.snooze(applicationContext, current.reminder, minutes)
     }
 
     private fun withReminder(action: suspend (ReminderWithSchedules) -> Unit) {
@@ -160,8 +165,19 @@ internal fun AlarmScreen(
     title: String,
     description: String,
     onComplete: () -> Unit,
-    onSnooze: () -> Unit
+    onSnooze: (Long) -> Unit
 ) {
+    var showSnoozeDurationDialog by remember { mutableStateOf(false) }
+
+    SnoozeDurationDialog(
+        isOpen = showSnoozeDurationDialog,
+        defaultMinutes = AlarmScheduler.SNOOZE_MINUTES,
+        onCancel = { showSnoozeDurationDialog = false },
+        onConfirm = { minutes ->
+            showSnoozeDurationDialog = false
+            onSnooze(minutes)
+        }
+    )
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
@@ -207,16 +223,33 @@ internal fun AlarmScreen(
                 Text("Mark Complete", style = actionButtonTextStyle)
             }
             Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onSnooze,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SnoozeContainer,
-                    contentColor = OnSnoozeContainer
-                ),
-                modifier = actionButtonModifier
+            // A plain Button only exposes a single onClick, so this is built from Surface +
+            // combinedClickable instead — a tap snoozes for the default duration, a long-press
+            // opens SnoozeDurationDialog to override it for just this alarm.
+            Surface(
+                color = SnoozeContainer,
+                contentColor = OnSnoozeContainer,
+                shape = ButtonDefaults.shape,
+                modifier = actionButtonModifier.combinedClickable(
+                    onClick = { onSnooze(AlarmScheduler.SNOOZE_MINUTES) },
+                    onLongClick = { showSnoozeDurationDialog = true },
+                    onLongClickLabel = "Customize snooze duration"
+                )
             ) {
-                Text("Snooze 2 minutes", style = actionButtonTextStyle)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Snooze ${AlarmScheduler.SNOOZE_MINUTES} minutes",
+                        style = actionButtonTextStyle,
+                        modifier = Modifier.testTag("snoozeButtonLabel")
+                    )
+                }
             }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Long-press to customize duration",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
         }
     }
 }
